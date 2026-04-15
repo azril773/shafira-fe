@@ -1,4 +1,6 @@
 import { createElement, useState } from 'react'
+import { useAuthStore } from '../../store/authStore'
+import logoSecondary from '../../assets/logo-shafira2.png'
 import {
   Box,
   Truck,
@@ -64,6 +66,8 @@ export default function InventoryPage() {
   const [activeModule, setActiveModule] = useState('master')
   const [activeReport, setActiveReport] = useState('sales')
   const [selectedItem, setSelectedItem] = useState(null)
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
+  const { logout, user } = useAuthStore()
   const [selectedItemAction, setSelectedItemAction] = useState('')
   const [activeReturnAction, setActiveReturnAction] = useState('')
   const [infoMessage, setInfoMessage] = useState('Klik produk atau laporan untuk melihat demo informasi inventory.')
@@ -297,29 +301,61 @@ export default function InventoryPage() {
       <div className="absolute -top-[120px] left-0 h-[360px] w-[360px] rounded-full bg-[#ffaf78] opacity-80" />
       <div className="absolute bottom-0 right-0 h-[420px] w-[420px] rounded-full bg-[#ffb980] opacity-70" />
 
-      <header className="relative z-10 border-b border-white/30 bg-orange-500 px-6 py-4 shadow-xl shadow-orange-200/50 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-4">
-          <nav className="hidden gap-8 text-sm font-semibold text-orange-100 md:flex">
-            {topNavItems.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setActiveModule(item.id)}
-                className={`transition ${
-                  activeModule === item.id ? 'text-white' : 'text-orange-100 hover:text-white/90'
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </nav>
+      <header className="relative z-10 w-full">
+        <div className="absolute inset-0 bg-orange-500" />
+        <div className="absolute left-0 top-0 h-full w-[320px] bg-white rounded-br-[120px]" />
 
-          <div className="flex items-center gap-3 rounded-full bg-white/15 px-4 py-2 text-white shadow-sm shadow-orange-500/10 backdrop-blur">
-            <UserCircle size={24} />
-            <div className="text-right">
-              <p className="font-semibold">Asep</p>
-              <p className="text-xs text-orange-100">Admin</p>
+        <div className="relative mx-auto flex max-w-[1440px] items-center px-6 py-4">
+          <div className="flex items-center gap-4">
+            <div className="relative -left-45">
+               <img src={logoSecondary} alt="ShafiraMart" className="h-16 w-auto object-contain" />
             </div>
+            <div>
+            </div>
+            <nav className="hidden md:flex items-center gap-8 text-white font-medium">
+              {topNavItems.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setActiveModule(item.id)}
+                  className={`transition ${
+                    activeModule === item.id
+                      ? 'text-white underline decoration-white/40 underline-offset-4'
+                      : 'text-orange-100 hover:text-white/90'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </nav>
+          </div>
+
+          <div className="ml-auto flex items-center gap-3">
+            <div className="text-right text-white">
+              <p className="font-semibold">{user?.name || 'Asep'}</p>
+              <p className="text-xs opacity-80">Admin</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsUserMenuOpen((prev) => !prev)}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-md text-orange-500"
+            >
+              {user?.name ? user.name.charAt(0).toUpperCase() : 'A'}
+            </button>
+            {isUserMenuOpen && (
+              <div className="absolute right-6 top-16 z-20 w-40 rounded-xl border border-white/20 bg-white text-gray-900 shadow-xl">
+                <button
+                  type="button"
+                  onClick={() => {
+                    logout()
+                    setIsUserMenuOpen(false)
+                  }}
+                  className="w-full px-4 py-3 text-left text-sm transition hover:bg-orange-50"
+                >
+                  Logout
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </header>

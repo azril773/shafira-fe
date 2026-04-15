@@ -45,7 +45,7 @@ export default function LoginPage() {
       <div className="relative z-10 flex w-full max-w-6xl flex-col gap-8 lg:flex-row lg:items-center items-stretch">
         <div className="flex-1 hidden lg:flex items-center justify-start pr-60">
           <div className="max-w-sm text-left">
-            <div className="mb-6 w-140 h-140 rounded-full bg-white/75 flex items-center justify-center shadow-2xl backdrop-blur-sm">
+            <div className="mb-6 w-140 h-140 rounded-full bg-white/75 flex items-center justify-center shadow-2xl backdrop-blur">
               <img src={logo} alt="ShafiraMart" className="w-80" />
             </div>
           </div>
