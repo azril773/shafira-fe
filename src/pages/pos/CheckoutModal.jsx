@@ -4,7 +4,7 @@ import { formatRupiah } from '../../utils/format'
 
 const PAYMENT_METHODS = ['Tunai', 'QRIS', 'Kartu Debit', 'Kartu Kredit']
 
-export default function CheckoutModal({ total, onClose, onSuccess }) {
+export default function CheckoutModal({ total, mode = 'sale', onClose, onSuccess }) {
   const [method, setMethod] = useState('Tunai')
   const [cash, setCash] = useState('')
   const [loading, setLoading] = useState(false)
@@ -37,7 +37,7 @@ export default function CheckoutModal({ total, onClose, onSuccess }) {
         <div className="px-6 py-4 space-y-4">
           {/* Total */}
           <div className="bg-indigo-50 rounded-xl p-4 text-center">
-            <p className="text-sm text-gray-500">Total Tagihan</p>
+            <p className="text-sm text-gray-500">{mode === 'return' ? 'Total Retur' : 'Total Tagihan'}</p>
             <p className="text-3xl font-bold text-indigo-600 mt-1">{formatRupiah(total)}</p>
           </div>
 
@@ -91,7 +91,7 @@ export default function CheckoutModal({ total, onClose, onSuccess }) {
             disabled={loading || (method === 'Tunai' && cashNum < total)}
             className="w-full py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Memproses...' : 'Bayar Sekarang'}
+            {loading ? 'Memproses...' : mode === 'return' ? 'Proses Retur' : 'Bayar Sekarang'}
           </button>
         </div>
       </div>

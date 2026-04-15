@@ -20,9 +20,12 @@ export default function LoginPage() {
       // login(res.data.user, res.data.token)
 
       // Demo login sementara
-      if (form.email === 'admin@pos.com' && form.password === 'password') {
-        login({ name: 'Admin', email: form.email, role: 'admin' }, 'demo-token')
+      if (form.email === 'kasir@pos.com' && form.password === 'password') {
+        login({ name: 'Kasir', email: form.email, role: 'kasir' }, 'demo-token')
         navigate('/pos')
+      } else if (form.email === 'inventory@pos.com' && form.password === 'password') {
+        login({ name: 'Inventory', email: form.email, role: 'inventory' }, 'demo-token')
+        navigate('/inventory')
       } else {
         setError('Email atau password salah')
       }
@@ -86,7 +89,11 @@ export default function LoginPage() {
                 </button>
               </form>
 
-              <p className="text-center text-xs text-orange-100 mt-6">Demo: admin@pos.com / password</p>
+              <p className="text-center text-xs text-orange-100 mt-6">
+                Demo:
+                <span className="block">kasir@pos.com / password</span>
+                <span className="block">inventory@pos.com / password</span>
+              </p>
             </div>
           </div>
         </div>

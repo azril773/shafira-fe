@@ -17,11 +17,15 @@ import {
 import { useAuthStore } from '../../store/authStore'
 import logoSecondary from '../../assets/logo-shafira2.png'
 
-const navItems = [
+const cashierNavItems = [
   { to: '/pos', icon: ShoppingCart, label: 'Kasir' },
   { to: '/products', icon: Package, label: 'Produk' },
   { to: '/transactions', icon: ReceiptText, label: 'Transaksi' },
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+]
+
+const inventoryNavItems = [
+  { to: '/inventory', icon: Monitor, label: 'Inventory' },
 ]
 
 export default function MainLayout() {
@@ -32,6 +36,8 @@ export default function MainLayout() {
     minute: '2-digit',
   })
   const dateText = now.toLocaleDateString('id-ID')
+
+  const currentNavItems = user?.role === 'inventory' ? inventoryNavItems : cashierNavItems
 
   return (
     <div className="flex h-screen bg-[#f6efe8] overflow-hidden">
@@ -49,6 +55,9 @@ export default function MainLayout() {
                 <Users size={32} />
               </div>
               <p className="text-lg font-semibold">{user?.name || 'Asep'}</p>
+              <p className="text-xs text-orange-100 mt-1 uppercase tracking-[0.2em]">
+                {user?.role === 'inventory' ? 'Inventory User' : 'Kasir'}
+              </p>
             </div>
 
             <div className="space-y-4 text-sm text-white/90">
@@ -64,18 +73,6 @@ export default function MainLayout() {
                 <Store size={16} className="text-white/80" />
                 <span>Supermarket</span>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/20 text-xs">P</span>
-                <span>POS 001</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/20 text-xs">S</span>
-                <span>Shift 1</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/20 text-xs">R</span>
-                <span>RCP 000006</span>
-              </div>
             </div>
           </div>
 
@@ -89,7 +86,7 @@ export default function MainLayout() {
         </div>
 
         <nav className="mt-6 space-y-1.5">
-          {navItems.map(({ to, icon, label }) => (
+          {currentNavItems.map(({ to, icon, label }) => (
             <NavLink
               key={to}
               to={to}

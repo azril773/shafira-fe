@@ -1,25 +1,13 @@
 import { Search } from 'lucide-react'
 import { formatRupiah, formatDate } from '../../utils/format'
 import { useState } from 'react'
-
-const DUMMY_TRANSACTIONS = [
-  { id: 'TRX-001', date: '2026-04-08T08:12:00', items: 5,  total: 42500,  method: 'Tunai',        status: 'Selesai' },
-  { id: 'TRX-002', date: '2026-04-08T08:47:00', items: 3,  total: 97000,  method: 'QRIS',         status: 'Selesai' },
-  { id: 'TRX-003', date: '2026-04-08T09:20:00', items: 8,  total: 183500, method: 'Tunai',        status: 'Selesai' },
-  { id: 'TRX-004', date: '2026-04-08T10:05:00', items: 2,  total: 11000,  method: 'Tunai',        status: 'Selesai' },
-  { id: 'TRX-005', date: '2026-04-08T10:33:00', items: 6,  total: 134000, method: 'Kartu Debit',  status: 'Selesai' },
-  { id: 'TRX-006', date: '2026-04-08T11:15:00', items: 4,  total: 56500,  method: 'QRIS',         status: 'Selesai' },
-  { id: 'TRX-007', date: '2026-04-08T12:02:00', items: 10, total: 247000, method: 'Kartu Kredit', status: 'Selesai' },
-  { id: 'TRX-008', date: '2026-04-08T12:45:00', items: 1,  total: 3500,   method: 'Tunai',        status: 'Void'    },
-  { id: 'TRX-009', date: '2026-04-08T13:30:00', items: 7,  total: 158500, method: 'QRIS',         status: 'Selesai' },
-  { id: 'TRX-010', date: '2026-04-08T14:10:00', items: 3,  total: 44500,  method: 'Tunai',        status: 'Selesai' },
-  { id: 'TRX-011', date: '2026-04-08T14:19:00', items: 3,  total: 80000,  method: 'Tunai',        status: 'Abort' },
-]
+import { useAppStore } from '../../store/appStore'
 
 export default function TransactionsPage() {
   const [search, setSearch] = useState('')
+  const { transactions } = useAppStore()
 
-  const filtered = DUMMY_TRANSACTIONS.filter((t) =>
+  const filtered = transactions.filter((t) =>
     t.id.toLowerCase().includes(search.toLowerCase())
   )
 

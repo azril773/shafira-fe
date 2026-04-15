@@ -37,6 +37,10 @@ export default function POSPage() {
 
   const { items, addItem, removeItem, updateQty, clearCart, getTotal } = useCartStore()
 
+  const itemTotal = items.reduce((sum, item) => sum + item.qty, 0)
+  const discount = 0
+  const total = getTotal()
+
   const searchResults = useMemo(() => {
     const query = search.trim().toLowerCase()
     if (!query) return []
@@ -75,13 +79,12 @@ export default function POSPage() {
     setBarcode('')
     setScanError('')
   }
-  const total = getTotal()
 
   return (
     <div className="min-h-screen bg-[#f4f1ee]">
       <div className="mx-auto max-w-[1600px] px-4 py-6 flex min-h-screen flex-col">
-        <main className="flex-1 overflow-auto space-y-6 pb-24">
-            <div className="rounded-[40px] bg-white shadow-sm border border-orange-100 p-6">
+        <main className="flex-1 flex flex-col space-y-6 pb-24">
+            <div className="rounded-[40px] bg-white shadow-sm border border-orange-100 p-6 min-h-[670px] flex flex-col">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-2xl font-bold text-orange-600">POS Kasir</h2>
@@ -159,8 +162,8 @@ export default function POSPage() {
               </div>
               {scanError && <p className="mt-3 text-sm text-red-500">{scanError}</p>}
 
-              <div className="mt-6 overflow-x-auto">
-                <div className="max-h-[520px] overflow-y-auto rounded-[32px] border border-orange-100">
+              <div className="mt-6 flex-1 min-h-0 overflow-x-auto">
+                <div className="h-full min-h-0 max-h-[520px] overflow-y-auto rounded-[32px] border border-orange-100">
                   <table className="w-full min-w-[720px]">
                   <thead>
                     <tr className="text-left text-gray-500 text-sm border-b border-orange-100">
@@ -221,39 +224,21 @@ export default function POSPage() {
             </div>
 
             <footer className="sticky bottom-0 z-10 mt-6 rounded-[40px] bg-white p-6 shadow-sm border border-orange-100">
-              <div className="grid gap-6 lg:grid-cols-[1fr_1fr_260px]">
-                <div className="rounded-[32px] bg-orange-50 p-4">
-                  <p className="text-sm uppercase tracking-[0.2em] text-gray-500">Member</p>
-                  <div className="mt-4 space-y-3 text-sm text-gray-600">
-                    <div className="flex justify-between gap-4">
-                      <span>No. Member</span>
-                      <span className="font-semibold text-gray-900">00000000000002</span>
-                    </div>
-                    <div className="flex justify-between gap-4">
-                      <span>Nama</span>
-                      <span className="font-semibold text-gray-900">Boboboy</span>
-                    </div>
-                    <div className="flex justify-between gap-4">
-                      <span>No. Handphone</span>
-                      <span className="font-semibold text-gray-900">085621478523</span>
-                    </div>
-                  </div>
-                </div>
-
+              <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
                 <div className="rounded-[32px] bg-orange-50 p-4">
                   <p className="text-sm uppercase tracking-[0.2em] text-gray-500">Summary</p>
                   <div className="mt-4 space-y-3 text-sm text-gray-600">
                     <div className="flex justify-between gap-4">
                       <span>Discount</span>
-                      <span className="font-semibold text-gray-900">Rp. 200</span>
+                      <span className="font-semibold text-gray-900">{formatRupiah(discount)}</span>
                     </div>
                     <div className="flex justify-between gap-4">
                       <span>Item Total</span>
-                      <span className="font-semibold text-gray-900">5</span>
+                      <span className="font-semibold text-gray-900">{itemTotal}</span>
                     </div>
                     <div className="flex justify-between gap-4">
-                      <span>Last Change</span>
-                      <span className="font-semibold text-gray-900">Rp. 200.000.000</span>
+                      <span>Total Bayar</span>
+                      <span className="font-semibold text-gray-900">{formatRupiah(total)}</span>
                     </div>
                   </div>
                 </div>
