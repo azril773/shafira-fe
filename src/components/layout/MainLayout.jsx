@@ -16,16 +16,17 @@ import {
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import logoSecondary from '../../assets/logo-shafira2.png'
+import { CASHIER } from '../../constants/user'
 
 const cashierNavItems = [
-  { to: '/pos', icon: ShoppingCart, label: 'Kasir' },
-  { to: '/products', icon: Package, label: 'Produk' },
-  { to: '/transactions', icon: ReceiptText, label: 'Transaksi' },
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/pos/kasir', icon: ShoppingCart, label: 'Kasir' },
+  { to: '/pos/products', icon: Package, label: 'Produk' },
+  { to: '/pos/transactions', icon: ReceiptText, label: 'Transaksi' },
+  { to: '/pos/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
 ]
 
 const inventoryNavItems = [
-  { to: '/inventory', icon: Monitor, label: 'Inventory' },
+  { to: '/inventory/dashboard', icon: Monitor, label: 'Inventory' },
 ]
 
 export default function MainLayout() {
@@ -37,7 +38,7 @@ export default function MainLayout() {
   })
   const dateText = now.toLocaleDateString('id-ID')
 
-  const currentNavItems = user?.role === 'inventory' ? inventoryNavItems : cashierNavItems
+  const currentNavItems = user?.role === CASHIER ? cashierNavItems : inventoryNavItems
   const location = useLocation()
   const hideSidebar = location.pathname === '/inventory'
 
@@ -59,7 +60,7 @@ export default function MainLayout() {
               </div>
               <p className="text-lg font-semibold">{user?.name || 'Asep'}</p>
               <p className="text-xs text-orange-100 mt-1 uppercase tracking-[0.2em]">
-                {user?.role === 'inventory' ? 'Inventory User' : 'Kasir'}
+                {user?.role === CASHIER ? 'Kasir' : 'Inventory User'}
               </p>
             </div>
 

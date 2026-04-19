@@ -1,39 +1,37 @@
-import { useState } from 'react'
-import { useAuthStore } from '../../store/authStore'
-import { useNavigate } from 'react-router-dom'
-import logo from '../../assets/logo-shafira.png'
+import { useState } from "react";
+import { useAuthStore } from "../../store/authStore";
+import { useNavigate } from "react-router-dom";
+import logo from "../../assets/logo-shafira.png";
+import { CASHIER } from "../../constants/user";
+import { loginApi } from "../../services/auth";
 
 export default function LoginPage() {
-  const [form, setForm] = useState({ email: '', password: '' })
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-  const { login } = useAuthStore()
-  const navigate = useNavigate()
+  const [form, setForm] = useState({ username: "", password: "" });
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { login, token } = useAuthStore();
+  const navigate = useNavigate();
 
   async function handleSubmit(e) {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
-    try {
-      // Ganti dengan API call ke backend
-      // const res = await api.post('/auth/login', form)
-      // login(res.data.user, res.data.token)
+    e.preventDefault();
+    setError("");
+    setLoading(true);
 
-      // Demo login sementara
-      if (form.email === 'kasir@pos.com' && form.password === 'password') {
-        login({ name: 'Kasir', email: form.email, role: 'kasir' }, 'demo-token')
-        navigate('/pos')
-      } else if (form.email === 'inventory@pos.com' && form.password === 'password') {
-        login({ name: 'Inventory', email: form.email, role: 'inventory' }, 'demo-token')
-        navigate('/inventory')
-      } else {
-        setError('Email atau password salah')
-      }
-    } catch {
-      setError('Login gagal. Coba lagi.')
-    } finally {
+    const { data, error } = await loginApi(form.username, form.password);
+    if (error.length > 0) {
+      setError(error)
       setLoading(false)
+    }else{
+      login(data.user, data.token)
+      switch(data.user.role) {
+        case CASHIER:
+          navigate('/pos')
+          break
+        default:
+          navigate('/inventory')
+      }
     }
+
   }
 
   return (
@@ -55,16 +53,20 @@ export default function LoginPage() {
           <div className="bg-orange-600 text-white rounded-[48px] shadow-xl w-full max-w-xl mx-auto min-h-[720px] max-h-[520px] flex items-center justify-center p-10">
             <div className="w-full max-w-sm text-center space-y-6">
               <div>
-                <h2 className="text-3xl font-bold tracking-[0.35em] uppercase">User Login</h2>
-                <p className="text-sm text-orange-100 mt-3">Please Login to continue</p>
+                <h2 className="text-3xl font-bold tracking-[0.35em] uppercase">
+                  User Login
+                </h2>
+                <p className="text-sm text-orange-100 mt-3">
+                  Please Login to continue
+                </p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <input
-                  type="email"
+                  type="text"
                   required
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  value={form.username}
+                  onChange={(e) => setForm({ ...form, username: e.target.value })}
                   placeholder="username"
                   className="w-full p-3 rounded-full text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-orange-200"
                 />
@@ -73,31 +75,35 @@ export default function LoginPage() {
                   type="password"
                   required
                   value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, password: e.target.value })
+                  }
                   placeholder="password"
                   className="w-full p-3 rounded-full text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-orange-200"
                 />
 
-                {error && <p className="text-sm text-red-100 text-center">{error}</p>}
+                {error && (
+                  <p className="text-sm text-red-100 text-center">{error}</p>
+                )}
 
                 <button
                   type="submit"
                   disabled={loading}
                   className="w-full bg-green-500 py-3 rounded-full font-semibold hover:bg-green-600 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
                 >
-                  {loading ? 'Memproses...' : 'LOGIN'}
+                  {loading ? "Memproses..." : "LOGIN"}
                 </button>
               </form>
 
               <p className="text-center text-xs text-orange-100 mt-6">
                 Demo:
-                <span className="block">kasir@pos.com / password</span>
-                <span className="block">inventory@pos.com / password</span>
+                <span className="block">kasir / password</span>
+                <span className="block">inventory / password</span>
               </p>
             </div>
           </div>
         </div>
       </div>
     </div>
-  )
+  );
 }
