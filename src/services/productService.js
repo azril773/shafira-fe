@@ -9,9 +9,14 @@ export const productService = {
   delete: (id) => api.delete(`/products/${id}`),
 };
 
-export async function createProduct(data) {
+export async function createProduct({ name, barcode, price, category }) {
   try {
-    const response = await api.post("/products", data);
+    const response = await api.post("/products", {
+      name,
+      barcode,
+      price,
+      category,
+    });
     return { data: response.data, error: "" };
   } catch (error) {
     return {

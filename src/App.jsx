@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import MainLayout from "./components/layout/MainLayout";
 import POSPage from "./pages/pos/POSPage";
 import ProductsPage from "./pages/products/ProductsPage";
@@ -8,10 +8,12 @@ import InventoryPage from "./pages/inventory/InventoryPage";
 import LoginPage from "./pages/auth/LoginPage";
 import { useAuthStore } from "./store/authStore";
 import { CASHIER } from "./constants/user";
+import ProductPage from "./pages/inventory/products/product";
+import EditProductPage from "./pages/inventory/products/edit";
 
-function PrivateRoute({ children }) {
+function PrivateRoute() {
   const { isAuthenticated } = useAuthStore();
-  return isAuthenticated ? children : <Navigate to="/login" replace />;
+  return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
 }
 
 function HomeRedirect() {
@@ -35,11 +37,13 @@ function PosRoutes() {
   if (user.role !== CASHIER) return <Navigate to="/inventory" replace />;
   return (
     <Routes>
-      <Route index element={<PosRedirect />} />
-      <Route path="kasir" element={<POSPage />} />
-      <Route path="products" element={<ProductsPage />} />
-      <Route path="transactions" element={<TransactionsPage />} />
-      <Route path="dashboard" element={<DashboardPage />} />
+      <Route element={<MainLayout />}>
+        <Route index element={<PosRedirect />} />
+        <Route path="kasir" element={<POSPage />} />
+        <Route path="products" element={<ProductsPage />} />
+        <Route path="transactions" element={<TransactionsPage />} />
+        <Route path="dashboard" element={<DashboardPage />} />
+      </Route>
     </Routes>
   );
 }
@@ -49,7 +53,11 @@ function InventoryRoutes() {
   if (user.role === CASHIER) return <Navigate to="/pos" replace />;
   return (
     <Routes>
-      <Route index element={<InventoryPage />} />
+      <Route element={<InventoryPage />}>
+        <Route index element={<Navigate to="products" replace />} />
+        <Route path="products" element={<ProductPage />} />
+        <Route path="products/edit/:id" element={<EditProductPage />} />
+      </Route>
     </Routes>
   );
 }
@@ -59,14 +67,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
-        <Route
-          path="/"
-          element={
-            <PrivateRoute>
-              <MainLayout />
-            </PrivateRoute>
-          }
-        >
+        <Route path="/" element={<PrivateRoute />}>
           <Route index element={<HomeRedirect />} />
           <Route path="pos/*" element={<PosRoutes />} />
           <Route path="inventory/*" element={<InventoryRoutes />} />

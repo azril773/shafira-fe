@@ -21,12 +21,13 @@ import { formatRupiah } from "../../utils/format";
 import { createProduct } from "../../services/productService";
 import { notification } from "../../utils/toast.jsx";
 import { validateBarcode } from "../../utils/utils.js";
-import ProductPage from "./product.jsx";
+import ProductPage from "./products/product.jsx";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
 const topNavItems = [
-  { id: "master", label: "Master Item", module: "master" },
-  { id: "purchases", label: "Pembelian", module: "purchases" },
-  { id: "reports", label: "Report", module: "reports" },
+  { id: "products", label: "Product", href: "/inventory/products" },
+  { id: "purchases", label: "Pembelian", href: "/inventory/purchases" },
+  { id: "reports", label: "Report", href: "/inventory/reports" },
 ];
 
 const reportItems = [
@@ -201,7 +202,8 @@ const DEMO_VENDORS = [
 ];
 
 export default function InventoryPage() {
-  const [activeModule, setActiveModule] = useState("master");
+  const navigate = useNavigate();
+  const location = useLocation()
   const [activeReport, setActiveReport] = useState("sales");
   const [selectedItem, setSelectedItem] = useState(null);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -501,8 +503,8 @@ export default function InventoryPage() {
                   key={item.id}
                   type="button"
                   onClick={() => setActiveModule(item.id)}
-                  className={`transition ${
-                    activeModule === item.id
+                  className={`transition cursor-pointer ${
+                    location.pathname.includes(item.href)
                       ? "text-white underline decoration-white/40 underline-offset-4"
                       : "text-orange-100 hover:text-white/90"
                   }`}
@@ -588,7 +590,8 @@ export default function InventoryPage() {
         </div>
 
         <div className="mt-8">
-          {activeModule === "master" && (
+          <Outlet />
+          {/* {activeModule === "master" && (
             <ProductPage />
             // <section className="rounded-[40px] border border-orange-100 bg-white p-6 shadow-sm">
             //   <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -1206,7 +1209,7 @@ export default function InventoryPage() {
                 </div>
               )}
             </section>
-          )}
+          )} */}
         </div>
       </main>
     </div>
