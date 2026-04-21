@@ -5,10 +5,43 @@ import { formatRupiah } from '../../utils/format'
 import CheckoutModal from './CheckoutModal'
 
 const DUMMY_PRODUCTS = [
-  { id: 1, barcode: '899256633154667', name: 'Indomie Goreng', price: 3500, category: 'Mie Instan', stock: 200 },
+  {
+    id: 1,
+    barcode: '899256633154667',
+    name: 'Indomie Goreng',
+    price: 3500,
+    category: 'Mie Instan',
+    stock: 200,
+    prices: [
+      { label: 'Eceran', price: 3500 },
+      { label: 'Grosir', price: 3200 },
+    ],
+  },
   { id: 2, barcode: '899256633154668', name: 'Indomie Kuah', price: 3500, category: 'Mie Instan', stock: 180 },
-  { id: 3, barcode: '899256633154669', name: 'Aqua 600ml', price: 4000, category: 'Minuman', stock: 300 },
-  { id: 4, barcode: '899256633154670', name: 'Teh Botol Sosro', price: 5500, category: 'Minuman', stock: 150 },
+  {
+    id: 3,
+    barcode: '899256633154669',
+    name: 'Aqua 600ml',
+    price: 4000,
+    category: 'Minuman',
+    stock: 300,
+    prices: [
+      { label: 'Retail', price: 4000 },
+      { label: 'Promo', price: 3800 },
+    ],
+  },
+  {
+    id: 4,
+    barcode: '899256633154670',
+    name: 'Teh Botol Sosro',
+    price: 5500,
+    category: 'Minuman',
+    stock: 150,
+    prices: [
+      { label: 'Reguler', price: 5500 },
+      { label: 'Paket', price: 5200 },
+    ],
+  },
   { id: 5, barcode: '899256633154671', name: 'Pocari Sweat 500ml', price: 8500, category: 'Minuman', stock: 120 },
   { id: 6, barcode: '899256633154672', name: 'Sprite 390ml', price: 7000, category: 'Minuman', stock: 100 },
   { id: 7, barcode: '899256633154673', name: 'Chitato Sapi Panggang', price: 10000, category: 'Snack', stock: 80 },
@@ -52,12 +85,32 @@ export default function POSPage() {
     )
   }, [search])
 
-  const handleSelectProduct = (product) => {
-    const qty = Number(scanQty) > 0 ? Number(scanQty) : 1
-    addItem(product, qty)
+  const [priceSelection, setPriceSelection] = useState(null)
+
+  const getDefaultPriceOption = (product) => {
+    if (product.prices?.length > 0) {
+      return product.prices[0]
+    }
+    return { label: 'Harga', price: product.price }
+  }
+
+  const addCartItem = (product, qty = 1, priceOption = null) => {
+    const quantity = Number(qty) > 0 ? Number(qty) : 1
+    const option = priceOption || getDefaultPriceOption(product)
+    addItem({ ...product, price: option.price, priceLabel: option.label }, quantity)
     setDescription(product.name)
     setSearch('')
+    setBarcode('')
     setScanError('')
+  }
+
+  const handleSelectProduct = (product) => {
+    const qty = Number(scanQty) > 0 ? Number(scanQty) : 1
+    if (product.prices?.length > 1) {
+      setPriceSelection({ product, qty })
+      return
+    }
+    addCartItem(product, qty)
   }
 
   const handleScan = () => {
@@ -74,11 +127,21 @@ export default function POSPage() {
     }
 
     const qty = Number(scanQty) > 0 ? Number(scanQty) : 1
-    addItem(product, qty)
-    setDescription(product.name)
-    setBarcode('')
-    setScanError('')
+    if (product.prices?.length > 1) {
+      setPriceSelection({ product, qty })
+      return
+    }
+
+    addCartItem(product, qty)
   }
+
+  const handlePriceChoice = (option) => {
+    if (!priceSelection) return
+    addCartItem(priceSelection.product, priceSelection.qty, option)
+    setPriceSelection(null)
+  }
+
+  const closePriceSelection = () => setPriceSelection(null)
 
   return (
     <div className="min-h-screen bg-[#f4f1ee]">
@@ -149,7 +212,14 @@ export default function POSPage() {
                               className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-orange-50"
                             >
                               <div className="font-semibold">{product.name}</div>
-                              <div className="text-xs text-gray-500">{product.category}</div>
+                              <div className="flex items-center gap-2 text-xs text-gray-500">
+                                <span>{product.category}</span>
+                                {product.prices?.length > 1 && (
+                                  <span className="rounded-full bg-orange-100 px-2 py-0.5 font-semibold text-orange-700">
+                                    Pilih Harga
+                                  </span>
+                                )}
+                              </div>
                             </button>
                           ))
                         ) : (
@@ -184,19 +254,24 @@ export default function POSPage() {
                       </tr>
                     ) : (
                       items.map((item) => (
-                        <tr key={item.id} className="text-sm border-b border-orange-50 hover:bg-orange-50/50">
-                          <td className="px-5 py-4 text-gray-700 font-medium">{item.name}</td>
+                        <tr key={item.key} className="text-sm border-b border-orange-50 hover:bg-orange-50/50">
+                          <td className="px-5 py-4 text-gray-700 font-medium">
+                            {item.name}
+                            {item.priceLabel && (
+                              <div className="mt-1 text-xs text-gray-500">{item.priceLabel}</div>
+                            )}
+                          </td>
                           <td className="px-5 py-4">
                             <div className="inline-flex items-center gap-1.5 bg-orange-50 rounded-full px-2 py-1">
                               <button
-                                onClick={() => updateQty(item.id, item.qty - 1)}
+                                onClick={() => updateQty(item.key, item.qty - 1)}
                                 className="w-6 h-6 rounded-full bg-white border border-orange-200 flex items-center justify-center"
                               >
                                 <Minus size={12} />
                               </button>
                               <span className="w-6 text-center text-xs font-semibold">{item.qty}</span>
                               <button
-                                onClick={() => updateQty(item.id, item.qty + 1)}
+                                onClick={() => updateQty(item.key, item.qty + 1)}
                                 className="w-6 h-6 rounded-full bg-white border border-orange-200 flex items-center justify-center"
                               >
                                 <Plus size={12} />
@@ -208,7 +283,7 @@ export default function POSPage() {
                           <td className="px-5 py-4 text-right font-bold text-gray-800">{formatRupiah(item.price * item.qty)}</td>
                           <td className="px-5 py-4 text-right">
                             <button
-                              onClick={() => removeItem(item.id)}
+                              onClick={() => removeItem(item.key)}
                               className="inline-flex w-8 h-8 items-center justify-center rounded-full bg-red-50 text-red-500 hover:bg-red-100"
                             >
                               <Trash2 size={14} />
@@ -222,6 +297,40 @@ export default function POSPage() {
               </div>
             </div>
             </div>
+            {priceSelection && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+                <div className="w-full max-w-xl rounded-[32px] bg-white p-6 shadow-2xl">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-900">Pilih Harga</h3>
+                      <p className="mt-2 text-sm text-gray-600">
+                        Produk {priceSelection.product.name} memiliki lebih dari satu harga. Pilih harga yang akan ditambahkan ke keranjang.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={closePriceSelection}
+                      className="rounded-full bg-orange-50 p-2 text-gray-500 hover:bg-orange-100"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <div className="mt-6 grid gap-3">
+                    {priceSelection.product.prices.map((option) => (
+                      <button
+                        key={option.label}
+                        type="button"
+                        onClick={() => handlePriceChoice(option)}
+                        className="w-full rounded-3xl border border-orange-200 bg-orange-50 px-4 py-4 text-left text-sm text-gray-700 hover:bg-orange-100"
+                      >
+                        <div className="font-semibold">{option.label}</div>
+                        <div className="mt-1 text-gray-500">{formatRupiah(option.price)}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <footer className="sticky bottom-0 z-10 mt-6 rounded-[40px] bg-white p-6 shadow-sm border border-orange-100">
               <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
@@ -272,6 +381,7 @@ export default function POSPage() {
           {showCheckout && (
             <CheckoutModal
               total={total}
+              items={items}
               onClose={() => setShowCheckout(false)}
               onSuccess={() => {
                 clearCart()

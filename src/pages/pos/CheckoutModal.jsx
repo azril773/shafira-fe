@@ -1,16 +1,45 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { formatRupiah } from '../../utils/format'
+import { printReceipt, printReceiptQZ, findQzPrinters, isQzLoaded } from '../../utils/receipt'
 
 const PAYMENT_METHODS = ['Tunai', 'QRIS', 'Kartu Debit', 'Kartu Kredit']
 
-export default function CheckoutModal({ total, mode = 'sale', onClose, onSuccess }) {
+export default function CheckoutModal({ total, items = [], mode = 'sale', onClose, onSuccess }) {
   const [method, setMethod] = useState('Tunai')
   const [cash, setCash] = useState('')
   const [loading, setLoading] = useState(false)
+  const [qzStatus, setQzStatus] = useState('loading')
+  const [printerName, setPrinterName] = useState('BSC10')
 
   const cashNum = Number(cash.replace(/\D/g, ''))
   const change = cashNum - total
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      setQzStatus('noqz')
+      return
+    }
+
+    if (!isQzLoaded()) {
+      setQzStatus('noqz')
+      return
+    }
+
+    findQzPrinters()
+      .then((printers) => {
+        if (printers?.length > 0) {
+          setPrinterName(printers[0])
+          setQzStatus('ready')
+        } else {
+          setQzStatus('no-printer')
+        }
+      })
+      .catch((error) => {
+        console.warn('QZ Tray connect failed:', error)
+        setQzStatus('error')
+      })
+  }, [])
 
   async function handlePay() {
     if (method === 'Tunai' && cashNum < total) return
@@ -18,7 +47,53 @@ export default function CheckoutModal({ total, mode = 'sale', onClose, onSuccess
     try {
       // await transactionService.create({ items, total, paymentMethod: method })
       await new Promise((r) => setTimeout(r, 600)) // simulasi
+
+      const receiptData = {
+        receiptId: `TRX-${Date.now()}`,
+        date: new Date().toLocaleString('id-ID'),
+        cashier: 'Kasir',
+        items,
+        subtotal: total,
+        total,
+        paymentMethod: method,
+        cash: method === 'Tunai' ? cashNum : total,
+        change: method === 'Tunai' ? Math.max(0, cashNum - total) : 0,
+      }
+
+      if (qzStatus === 'ready') {
+        try {
+          await printReceiptQZ(receiptData, printerName)
+        } catch (printError) {
+          console.error('QZ Tray print error:', printError)
+          alert('Gagal mencetak lewat QZ Tray. Menggunakan print browser sebagai fallback.')
+          printReceipt(receiptData)
+        }
+      } else {
+        if (qzStatus === 'loading') {
+          console.warn('QZ Tray masih loading, menggunakan browser print sebagai fallback.')
+        }
+        printReceipt(receiptData)
+      }
+
       onSuccess()
+    } catch (error) {
+      console.error('Print error:', error)
+      if (qzStatus === 'noqz' || qzStatus === 'no-printer' || qzStatus === 'error') {
+        alert('QZ Tray tidak tersedia atau tidak terhubung. Mencetak lewat browser print sebagai fallback.')
+        printReceipt({
+          receiptId: `TRX-${Date.now()}`,
+          date: new Date().toLocaleString('id-ID'),
+          cashier: 'Kasir',
+          items,
+          subtotal: total,
+          total,
+          paymentMethod: method,
+          cash: method === 'Tunai' ? cashNum : total,
+          change: method === 'Tunai' ? Math.max(0, cashNum - total) : 0,
+        })
+      } else {
+        alert('Terjadi masalah saat mengirim ke printer. Periksa QZ Tray.')
+      }
     } finally {
       setLoading(false)
     }

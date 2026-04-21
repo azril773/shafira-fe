@@ -5,23 +5,25 @@ export const useCartStore = create((set, get) => ({
   addItem: (product, qty = 1) => {
     const quantity = Number(qty) > 0 ? Number(qty) : 1
     const items = get().items
-    const existing = items.find((i) => i.id === product.id)
+    const price = Number(product.price) || 0
+    const key = `${product.id}-${price}`
+    const existing = items.find((i) => i.key === key)
     if (existing) {
       set({
         items: items.map((i) =>
-          i.id === product.id ? { ...i, qty: i.qty + quantity } : i
+          i.key === key ? { ...i, qty: i.qty + quantity } : i
         ),
       })
     } else {
-      set({ items: [...items, { ...product, qty: quantity }] })
+      set({ items: [...items, { ...product, qty: quantity, key }] })
     }
   },
-  removeItem: (id) => set({ items: get().items.filter((i) => i.id !== id) }),
-  updateQty: (id, qty) => {
+  removeItem: (key) => set({ items: get().items.filter((i) => i.key !== key) }),
+  updateQty: (key, qty) => {
     if (qty <= 0) {
-      set({ items: get().items.filter((i) => i.id !== id) })
+      set({ items: get().items.filter((i) => i.key !== key) })
     } else {
-      set({ items: get().items.map((i) => (i.id === id ? { ...i, qty } : i)) })
+      set({ items: get().items.map((i) => (i.key === key ? { ...i, qty } : i)) })
     }
   },
   clearCart: () => set({ items: [] }),

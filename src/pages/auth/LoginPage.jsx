@@ -94,12 +94,6 @@ export default function LoginPage() {
                   {loading ? "Memproses..." : "LOGIN"}
                 </button>
               </form>
-
-              <p className="text-center text-xs text-orange-100 mt-6">
-                Demo:
-                <span className="block">kasir / password</span>
-                <span className="block">inventory / password</span>
-              </p>
             </div>
           </div>
         </div>

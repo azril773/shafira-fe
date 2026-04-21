@@ -3,10 +3,8 @@ import { formatRupiah } from "../../../utils/format";
 import { createProduct, searchProduct } from "../../../services/productService";
 import { toast } from "react-toastify";
 import { validateBarcode } from "../../../utils/utils";
-import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import PaginationTableNoLink from "../../../components/globals/pagination";
-
-
 
 export default function ProductPage() {
   const navigate = useNavigate()
@@ -21,6 +19,7 @@ export default function ProductPage() {
   const [barcode, setBarcode] = useState("");
   const [category, setCategory] = useState("");
   const [price, setPrice] = useState("");
+  const [priceListText, setPriceListText] = useState("");
 
   const [currentPage, setCurrentPage] = useState(parseInt(page));
   const [totalPages, setTotalPages] = useState(1);
@@ -36,6 +35,30 @@ export default function ProductPage() {
       `Demo produk: ${item.name}. Gunakan tombol restock atau retur untuk melihat simulasi.`,
     );
   };
+  const handleInventoryAction = (action) => {
+    setSelectedItemAction(`Aksi ${action} dijalankan pada ${selectedItem?.name ?? "produk"}.`);
+    setTimeout(() => setSelectedItemAction(""), 2500);
+  };
+
+  const parsePriceOptions = (basePrice, listText) => {
+    const parsedBase = Number(basePrice)
+    const extras = listText
+      .split(",")
+      .map((value) => Number(value.trim()))
+      .filter((value) => !Number.isNaN(value) && value > 0)
+
+    if (extras.length === 0) {
+      return undefined
+    }
+
+    return [
+      { label: "Harga Utama", price: parsedBase },
+      ...extras.map((price, index) => ({
+        label: `Harga Tambahan ${index + 1}`,
+        price,
+      })),
+    ]
+  }
 
   const checkError = () => {
     const tempError = {};
@@ -66,15 +89,18 @@ export default function ProductPage() {
   }, []);
 
   const handleCreateProduct = async () => {
+    const parsedPrices = parsePriceOptions(price, priceListText)
     const { data, error } = await createProduct({
       name,
       barcode,
       price,
       category,
-    });
+      prices: parsedPrices,
+    })
     if (error.length > 0) {
       toast.error(error);
     } else {
+      setPriceListText("")
       loadData();
     }
   };
@@ -121,7 +147,14 @@ export default function ProductPage() {
                   >
                     <td className="px-4 py-3">{item.barcode}</td>
                     <td className="px-4 py-3">{item.name}</td>
-                    <td className="px-4 py-3">{formatRupiah(item.price)}</td>
+                    <td className="px-4 py-3">
+                      {formatRupiah(item.price || item.prices?.[0]?.price)}
+                      {item.prices?.length > 1 && (
+                        <span className="ml-2 rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-semibold text-orange-700">
+                          Multi Harga
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-3">{item.stock}</td>
                   </tr>
                 ))}
@@ -170,10 +203,25 @@ export default function ProductPage() {
                         Harga
                       </p>
                       <p className="mt-2 font-semibold text-gray-900">
-                        {formatRupiah(selectedItem.price)}
+                        {formatRupiah(selectedItem.price || selectedItem.prices?.[0]?.price)}
                       </p>
                     </div>
                   </div>
+                  {selectedItem.prices?.length > 1 && (
+                    <div className="mt-4 rounded-3xl bg-orange-50 p-4">
+                      <p className="text-xs uppercase tracking-[0.2em] text-orange-500">
+                        Daftar Harga Alternatif
+                      </p>
+                      <ul className="mt-3 space-y-2 text-sm text-gray-700">
+                        {selectedItem.prices.map((priceOption) => (
+                          <li key={priceOption.label}>
+                            <span className="font-semibold">{priceOption.label}:</span>{' '}
+                            {formatRupiah(priceOption.price)}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   <div className="grid gap-2 sm:grid-cols-4">
                     <button
                       type="button"
@@ -184,7 +232,7 @@ export default function ProductPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => navigate(`/inventory/product/edit/${selectedItem.id}`)}
+                      onClick={() => navigate(`/inventory/products/edit/${selectedItem.id}`, { state: { product: selectedItem } })}
                       className="rounded-full cursor-pointer border border-orange-200 bg-white px-3 py-2 text-sm font-semibold text-orange-700 hover:bg-orange-50"
                     >
                       Edit
