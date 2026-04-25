@@ -27,6 +27,7 @@ const cashierNavItems = [
 
 const inventoryNavItems = [
   { to: '/inventory/dashboard', icon: Monitor, label: 'Inventory' },
+  { to: '/inventory/purchase', icon: ShoppingBag, label: 'Purchase' },
 ]
 
 export default function MainLayout() {

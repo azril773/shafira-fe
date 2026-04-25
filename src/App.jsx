@@ -10,6 +10,9 @@ import { useAuthStore } from "./store/authStore";
 import { CASHIER } from "./constants/user";
 import ProductPage from "./pages/inventory/products/product";
 import EditProductPage from "./pages/inventory/products/edit";
+import PurchasePage from "./pages/inventory/purchase/purchase";
+import VendorPage from "./pages/inventory/vendors/vendor";
+import EditVendorPage from "./pages/inventory/vendors/edit";
 
 function PrivateRoute() {
   const { isAuthenticated } = useAuthStore();
@@ -57,6 +60,9 @@ function InventoryRoutes() {
         <Route index element={<Navigate to="products" replace />} />
         <Route path="products" element={<ProductPage />} />
         <Route path="products/edit/:id" element={<EditProductPage />} />
+        <Route path="purchases" element={<PurchasePage />} />
+        <Route path="vendors" element={<VendorPage />} /> 
+        <Route path="vendors/edit/:id" element={<EditVendorPage />} /> 
       </Route>
     </Routes>
   );

@@ -9,12 +9,38 @@ export const productService = {
   delete: (id) => api.delete(`/products/${id}`),
 };
 
-export async function createProduct({ name, barcode, price, category, prices }) {
+export async function getProducts() {
+  try {
+    const response = await api.get("/products");
+    return { data: response.data, error: "" };
+  } catch (error) {
+    return {
+      data: [],
+      error: getErrorMessage(error),
+    };
+  }
+}
+export async function createProduct({ name, barcode, category, prices }) {
   try {
     const response = await api.post("/products", {
       name,
       barcode,
-      price,
+      category,
+      ...(prices ? { prices } : {}),
+    });
+    return { data: response.data, error: "" };
+  } catch (error) {
+    return {
+      data: null,
+      error: getErrorMessage(error),
+    };
+  }
+}
+export async function updateProduct({id, name, barcode, category, prices }) {
+  try {
+    const response = await api.put(`/products/${id}`, {
+      name,
+      barcode,
       category,
       ...(prices ? { prices } : {}),
     });
@@ -27,9 +53,9 @@ export async function createProduct({ name, barcode, price, category, prices }) 
   }
 }
 
+
 export async function searchProduct({ page, code, barcode }) {
   try {
-    console.log(page);
     const params = new URLSearchParams({ page });
     if (code) params.code = code;
     if (barcode) params.barcode = barcode;
@@ -42,7 +68,7 @@ export async function searchProduct({ page, code, barcode }) {
     };
   } catch (error) {
     return {
-      data: null,
+      data: [],
       totalPages: 0,
       error: getErrorMessage(error),
     };

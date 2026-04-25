@@ -26,6 +26,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
 const topNavItems = [
   { id: "products", label: "Product", href: "/inventory/products" },
+  { id: "vendors", label: "Vendor", href: "/inventory/vendors" },
   { id: "purchases", label: "Pembelian", href: "/inventory/purchases" },
   { id: "reports", label: "Report", href: "/inventory/reports" },
 ];
@@ -502,7 +503,7 @@ export default function InventoryPage() {
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => setActiveModule(item.id)}
+                  onClick={() => navigate(item.href)}
                   className={`transition cursor-pointer ${
                     location.pathname.includes(item.href)
                       ? "text-white underline decoration-white/40 underline-offset-4"
