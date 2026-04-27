@@ -9,12 +9,13 @@ export const transactionService = {
   refund: (id, data) => api.put(`/transactions/${id}/refund`, data),
 };
 
-export async function searchTransactions({ page, status, transactionNo, date }) {
+export async function searchTransactions({ page, status, transactionNo, date, barcode }) {
   try {
     const params = new URLSearchParams({ page: String(page ?? 1) });
     if (status) params.append("status", status);
     if (transactionNo) params.append("transactionNo", transactionNo);
     if (date) params.append("date", date);
+    if (barcode) params.append("barcode", barcode);
     const response = await api.get(`/transactions?${params.toString()}`);
     return {
       data: response.data.transactions,

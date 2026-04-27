@@ -14,3 +14,15 @@ export async function loginApi(username, password) {
     };
   }
 }
+
+export async function verifyAdminApi(username, password) {
+  try {
+    const response = await api.post("/auth/verify-admin", { username, password });
+    return { data: response.data, error: "" };
+  } catch (error) {
+    return {
+      data: null,
+      error: getErrorMessage(error),
+    };
+  }
+}

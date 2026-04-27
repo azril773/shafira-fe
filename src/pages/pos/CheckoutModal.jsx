@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
 import { formatRupiah } from '../../utils/format'
 import { printReceipt, printReceiptQZ, findQzPrinters, isQzLoaded } from '../../utils/receipt'
@@ -15,9 +15,50 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
   const [qzStatus, setQzStatus] = useState('loading')
   const [printerName, setPrinterName] = useState('BSC10')
   const user = useAuthStore((s) => s.user)
+  const cashRef = useRef(null)
 
   const cashNum = Number(cash.replace(/\D/g, ''))
   const change = cashNum - total
+
+  // Autofocus input uang tunai saat metode Tunai dipilih
+  useEffect(() => {
+    if (method === 'Tunai') {
+      const t = setTimeout(() => cashRef.current?.focus(), 50)
+      return () => clearTimeout(t)
+    }
+  }, [method])
+
+  // Shortcut keyboard checkout
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        if (!loading) onClose()
+        return
+      }
+      // Pintasan metode pembayaran 1-4 (saat tidak fokus pada input uang)
+      const tag = (e.target?.tagName || '').toLowerCase()
+      const isInput = tag === 'input' || tag === 'textarea'
+      if (!isInput && ['1', '2', '3', '4'].includes(e.key)) {
+        const idx = Number(e.key) - 1
+        if (PAYMENT_METHODS[idx]) {
+          e.preventDefault()
+          setMethod(PAYMENT_METHODS[idx])
+        }
+        return
+      }
+      if (e.key === 'Enter') {
+        const disabled = loading || (method === 'Tunai' && cashNum < total)
+        if (!disabled) {
+          e.preventDefault()
+          handlePay()
+        }
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [method, cashNum, total, loading])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -121,16 +162,17 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
           <div>
             <p className="text-sm font-medium text-gray-700 mb-2">Metode Pembayaran</p>
             <div className="grid grid-cols-2 gap-2">
-              {PAYMENT_METHODS.map((m) => (
+              {PAYMENT_METHODS.map((m, i) => (
                 <button
                   key={m}
                   onClick={() => setMethod(m)}
-                  className={`py-2 rounded-lg text-sm font-medium border transition-colors ${
+                  className={`relative py-2 rounded-lg text-sm font-medium border transition-colors ${
                     method === m
                       ? 'border-indigo-600 bg-indigo-50 text-indigo-600'
                       : 'border-gray-200 text-gray-600 hover:bg-gray-50'
                   }`}
                 >
+                  <span className="absolute left-2 top-1 text-[10px] font-bold text-gray-400">{i + 1}</span>
                   {m}
                 </button>
               ))}
@@ -144,6 +186,7 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
                 Uang Tunai
               </label>
               <input
+                ref={cashRef}
                 type="text"
                 value={cash}
                 onChange={(e) => setCash(e.target.value)}
@@ -167,7 +210,7 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
             disabled={loading || (method === 'Tunai' && cashNum < total)}
             className="w-full py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Memproses...' : mode === 'return' ? 'Proses Retur' : 'Bayar Sekarang'}
+            {loading ? 'Memproses...' : mode === 'return' ? 'Proses Retur' : 'Bayar Sekarang (Enter)'}
           </button>
         </div>
       </div>

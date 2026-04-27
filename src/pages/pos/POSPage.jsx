@@ -1,10 +1,26 @@
-import { useEffect, useState } from 'react'
-import { Search, Plus, Minus, Trash2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Search, Plus, Minus, Trash2, Keyboard, Ban, XOctagon, RotateCcw } from 'lucide-react'
 import { useCartStore } from '../../store/cartStore'
 import { formatRupiah } from '../../utils/format'
 import CheckoutModal from './CheckoutModal'
+import RefundModal from './RefundModal'
 import { searchProduct } from '../../services/productService'
 import { notification } from '../../utils/toast'
+import AdminVerifyModal from '../../components/globals/AdminVerifyModal'
+
+const SHORTCUTS = [
+  { keys: 'F2', desc: 'Fokus scan barcode' },
+  { keys: 'F3', desc: 'Fokus cari produk' },
+  { keys: 'F4 / *', desc: 'Fokus ubah jumlah (Qty)' },
+  { keys: 'Enter di Qty', desc: 'Pindah ke scan barcode' },
+  { keys: '+ / -', desc: 'Tambah / kurangi nilai Qty' },
+  { keys: 'F9', desc: 'Bayar / Checkout' },
+  { keys: 'F6', desc: 'Void item (perlu admin)' },
+  { keys: 'F7', desc: 'Abort transaksi (perlu admin)' },
+  { keys: 'F10', desc: 'Refund transaksi (perlu admin)' },
+  { keys: 'Ctrl + ↑/↓', desc: 'Tambah / kurangi qty item terakhir' },
+  { keys: 'Esc', desc: 'Tutup popup / bersihkan pencarian' },
+]
 
 export default function POSPage() {
   const [search, setSearch] = useState('')
@@ -15,6 +31,16 @@ export default function POSPage() {
   const [showCheckout, setShowCheckout] = useState(false)
   const [productSelection, setProductSelection] = useState(null)
   const [priceSelection, setPriceSelection] = useState(null)
+  const [showShortcuts, setShowShortcuts] = useState(false)
+  // adminAction: { type: 'void', key } | { type: 'abort' } | null
+  const [adminAction, setAdminAction] = useState(null)
+  // Modal pemilihan item untuk di-void
+  const [voidPicker, setVoidPicker] = useState(false)
+  const [showRefund, setShowRefund] = useState(false)
+
+  const barcodeRef = useRef(null)
+  const searchRef = useRef(null)
+  const qtyRef = useRef(null)
 
   const { items, addItem, removeItem, updateQty, clearCart, getTotal } =
     useCartStore()
@@ -102,17 +128,201 @@ export default function POSPage() {
     setPriceSelection(null)
   }
 
+  // Minta verifikasi admin sebelum void / abort
+  const requestVoid = (key) => {
+    if (!key) return
+    setVoidPicker(false)
+    setAdminAction({ type: 'void', key })
+  }
+  const openVoidPicker = () => {
+    if (items.length === 0) return
+    setVoidPicker(true)
+  }
+  const requestAbort = () => {
+    if (items.length === 0) return
+    setAdminAction({ type: 'abort' })
+  }
+  const handleAdminVerified = () => {
+    if (!adminAction) return
+    if (adminAction.type === 'void') {
+      removeItem(adminAction.key)
+      notification('Void', 'Item berhasil dihapus oleh admin.', 'success')
+    } else if (adminAction.type === 'abort') {
+      clearCart()
+      notification('Abort', 'Transaksi dibatalkan oleh admin.', 'success')
+    }
+    setAdminAction(null)
+  }
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e) => {
+      // Escape: tutup modal/popup atau reset
+      if (e.key === 'Escape') {
+        if (adminAction) {
+          setAdminAction(null)
+          return
+        }
+        if (voidPicker) {
+          setVoidPicker(false)
+          return
+        }
+        if (showRefund) {
+          setShowRefund(false)
+          return
+        }
+        if (showShortcuts) {
+          setShowShortcuts(false)
+          return
+        }
+        if (priceSelection) {
+          setPriceSelection(null)
+          return
+        }
+        if (productSelection) {
+          setProductSelection(null)
+          return
+        }
+        if (showCheckout) {
+          setShowCheckout(false)
+          return
+        }
+        if (search) {
+          setSearch('')
+          setSearchResults([])
+          return
+        }
+        if (barcode) {
+          setBarcode('')
+          setScanError('')
+        }
+        return
+      }
+
+      // Jika sedang ada modal/popup, abaikan shortcut lain
+      if (showCheckout || productSelection || priceSelection || showShortcuts || adminAction || voidPicker || showRefund) return
+
+      // F1: bantuan shortcut
+      if (e.key === 'F1') {
+        e.preventDefault()
+        setShowShortcuts(true)
+        return
+      }
+
+      // F2: fokus barcode
+      if (e.key === 'F2') {
+        e.preventDefault()
+        barcodeRef.current?.focus()
+        barcodeRef.current?.select()
+        return
+      }
+
+      // F3: fokus pencarian produk
+      if (e.key === 'F3') {
+        e.preventDefault()
+        searchRef.current?.focus()
+        searchRef.current?.select()
+        return
+      }
+
+      // F4 atau "*": fokus qty (gaya POS klasik)
+      const tagName = (e.target?.tagName || '').toLowerCase()
+      const inOtherInput =
+        (tagName === 'input' || tagName === 'textarea') &&
+        e.target !== qtyRef.current
+      if (e.key === 'F4' || (e.key === '*' && !inOtherInput)) {
+        e.preventDefault()
+        qtyRef.current?.focus()
+        qtyRef.current?.select()
+        return
+      }
+
+      // "+" / "-": tambah / kurangi nilai Qty (di luar input lain)
+      if (!inOtherInput && (e.key === '+' || e.key === '-')) {
+        e.preventDefault()
+        const current = Number(scanQty) || 1
+        const next = e.key === '+' ? current + 1 : Math.max(1, current - 1)
+        setScanQty(String(next))
+        return
+      }
+
+      // F6: void item (pilih item lalu verifikasi admin)
+      if (e.key === 'F6') {
+        e.preventDefault()
+        openVoidPicker()
+        return
+      }
+
+      // F7: abort transaksi / bersihkan keranjang (perlu verifikasi admin)
+      if (e.key === 'F7') {
+        e.preventDefault()
+        requestAbort()
+        return
+      }
+
+      // F10: refund transaksi (cari trx via barcode/no transaksi)
+      if (e.key === 'F10') {
+        e.preventDefault()
+        setShowRefund(true)
+        return
+      }
+
+      // F9: checkout / bayar
+      if (e.key === 'F9') {
+        e.preventDefault()
+        if (items.length > 0) setShowCheckout(true)
+        return
+      }
+
+      // Ctrl + ArrowUp/Down: ubah qty item terakhir
+      if (e.ctrlKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+        if (items.length === 0) return
+        e.preventDefault()
+        const last = items[items.length - 1]
+        const nextQty = e.key === 'ArrowUp' ? last.qty + 1 : last.qty - 1
+        updateQty(last.key, nextQty)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [
+    items,
+    search,
+    barcode,
+    scanQty,
+    showCheckout,
+    productSelection,
+    priceSelection,
+    showShortcuts,
+    adminAction,
+    voidPicker,
+    showRefund,
+    clearCart,
+    removeItem,
+    updateQty,
+  ])
+
   return (
     <div className="min-h-screen bg-[#f4f1ee]">
       <div className="mx-auto max-w-[1600px] px-4 py-6 flex min-h-screen flex-col">
         <main className="flex-1 flex flex-col space-y-6 pb-24">
           <div className="rounded-[40px] bg-white shadow-sm border border-orange-100 p-6 min-h-[670px] flex flex-col">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="text-2xl font-bold text-orange-600">POS Kasir</h2>
-                <p className="text-sm text-gray-500">
-                  Kelola transaksi dan laporan penjualan
-                </p>
+              <div className="flex items-start gap-3">
+                <div>
+                  <h2 className="text-2xl font-bold text-orange-600">POS Kasir</h2>
+                  <p className="text-sm text-gray-500">
+                    Kelola transaksi dan laporan penjualan
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowShortcuts(true)}
+                  title="Shortcut keyboard (F1)"
+                  className="inline-flex items-center gap-1 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-600 hover:bg-orange-100"
+                >
+                  <Keyboard size={14} /> F1
+                </button>
               </div>
               <div className="grid gap-3 sm:grid-cols-[100px_minmax(0,1fr)] xl:grid-cols-[100px_minmax(0,1fr)_360px]">
                 <div className="flex items-center gap-2">
@@ -124,8 +334,18 @@ export default function POSPage() {
                   </label>
                   <input
                     id="scanQty"
+                    ref={qtyRef}
                     type="number"
                     value={scanQty}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        const value = Number(scanQty)
+                        if (!value || value < 1) setScanQty('1')
+                        barcodeRef.current?.focus()
+                        barcodeRef.current?.select()
+                      }
+                    }}
                     onChange={(e) => setScanQty(e.target.value)}
                     onBlur={(e) => {
                       const value = Number(e.target.value)
@@ -140,8 +360,9 @@ export default function POSPage() {
                 <div className="relative">
                   <Search size={16} className="absolute left-3 top-3 text-orange-300" />
                   <input
+                    ref={barcodeRef}
                     type="text"
-                    placeholder="Scan barcode..."
+                    placeholder="Scan barcode... (F2)"
                     value={barcode}
                     onChange={(e) => setBarcode(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleScan()}
@@ -152,8 +373,9 @@ export default function POSPage() {
                 <div className="relative max-w-sm w-full sm:w-[360px]">
                   <Search size={16} className="absolute left-3 top-3 text-orange-300" />
                   <input
+                    ref={searchRef}
                     type="text"
-                    placeholder="Cari produk..."
+                    placeholder="Cari produk... (F3)"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="w-full pl-10 pr-4 py-2.5 border border-orange-200 rounded-full text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300"
@@ -237,7 +459,8 @@ export default function POSPage() {
                           <td className="px-5 py-4 text-right font-bold text-gray-800">{formatRupiah(item.price * item.qty)}</td>
                           <td className="px-5 py-4 text-right">
                             <button
-                              onClick={() => removeItem(item.key)}
+                              onClick={() => requestVoid(item.key)}
+                              title="Void item (perlu admin)"
                               className="inline-flex w-8 h-8 items-center justify-center rounded-full bg-red-50 text-red-500 hover:bg-red-100"
                             >
                               <Trash2 size={14} />
@@ -346,25 +569,78 @@ export default function POSPage() {
                   <p className="mt-4 text-4xl font-bold">{formatRupiah(total)}</p>
                 </div>
                 <div className="mt-6 grid gap-3">
-                  <button
-                    onClick={clearCart}
-                    disabled={items.length === 0}
-                    className="w-full rounded-full border border-white/30 bg-white/10 px-4 py-3 text-sm font-semibold text-white hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    Bersihkan
-                  </button>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      onClick={openVoidPicker}
+                      disabled={items.length === 0}
+                      title="Void item (pilih item, perlu admin)"
+                      className="inline-flex items-center justify-center gap-1 rounded-full border border-white/30 bg-white/10 px-2 py-2 text-xs font-semibold text-white hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <Ban size={14} /> Void (F6)
+                    </button>
+                    <button
+                      onClick={requestAbort}
+                      disabled={items.length === 0}
+                      title="Abort transaksi (perlu admin)"
+                      className="inline-flex items-center justify-center gap-1 rounded-full border border-white/30 bg-white/10 px-2 py-2 text-xs font-semibold text-white hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <XOctagon size={14} /> Abort (F7)
+                    </button>
+                    <button
+                      onClick={() => setShowRefund(true)}
+                      title="Refund transaksi sebelumnya (perlu admin)"
+                      className="inline-flex items-center justify-center gap-1 rounded-full border border-white/30 bg-white/10 px-2 py-2 text-xs font-semibold text-white hover:bg-white/20"
+                    >
+                      <RotateCcw size={14} /> Refund (F10)
+                    </button>
+                  </div>
                   <button
                     onClick={() => setShowCheckout(true)}
                     disabled={items.length === 0}
                     className="w-full rounded-full bg-white px-4 py-3 text-sm font-semibold text-green-600 hover:bg-white/90 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    Bayar
+                    Bayar (F9)
                   </button>
                 </div>
               </div>
             </div>
           </footer>
         </main>
+
+        {showShortcuts && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+            <div className="w-full max-w-md rounded-[32px] bg-white p-6 shadow-2xl">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900">Shortcut Keyboard</h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Percepat aktivitas kasir dengan tombol berikut.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowShortcuts(false)}
+                  className="rounded-full bg-orange-50 p-2 text-gray-500 hover:bg-orange-100"
+                >
+                  ✕
+                </button>
+              </div>
+              <ul className="mt-5 divide-y divide-orange-50">
+                {SHORTCUTS.map((s) => (
+                  <li
+                    key={s.keys}
+                    className="flex items-center justify-between gap-4 py-2.5 text-sm"
+                  >
+                    <span className="text-gray-600">{s.desc}</span>
+                    <kbd className="rounded-md border border-orange-200 bg-orange-50 px-2 py-1 text-xs font-semibold text-orange-700">
+                      {s.keys}
+                    </kbd>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
 
         {showCheckout && (
           <CheckoutModal
@@ -376,6 +652,71 @@ export default function POSPage() {
               setShowCheckout(false)
             }}
           />
+        )}
+
+        {showRefund && (
+          <RefundModal
+            onClose={() => setShowRefund(false)}
+            onSuccess={() => setShowRefund(false)}
+          />
+        )}
+
+        {adminAction && (
+          <AdminVerifyModal
+            title={adminAction.type === 'abort' ? 'Abort Transaksi' : 'Void Item'}
+            description={
+              adminAction.type === 'abort'
+                ? 'Membatalkan seluruh transaksi memerlukan persetujuan admin.'
+                : 'Menghapus item dari keranjang memerlukan persetujuan admin.'
+            }
+            confirmLabel={adminAction.type === 'abort' ? 'Abort' : 'Void'}
+            tone="red"
+            onCancel={() => setAdminAction(null)}
+            onVerified={handleAdminVerified}
+          />
+        )}
+
+        {voidPicker && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+            <div className="w-full max-w-xl rounded-3xl bg-white p-6 shadow-2xl">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900">Pilih Item untuk Void</h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Pilih salah satu item di keranjang. Verifikasi admin akan diminta setelahnya.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setVoidPicker(false)}
+                  className="rounded-full bg-orange-50 p-2 text-gray-500 hover:bg-orange-100"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="mt-5 grid gap-2 max-h-[420px] overflow-y-auto">
+                {items.map((it) => (
+                  <button
+                    key={it.key}
+                    type="button"
+                    onClick={() => requestVoid(it.key)}
+                    className="flex w-full items-center justify-between gap-3 rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3 text-left text-sm text-gray-700 hover:bg-orange-100"
+                  >
+                    <div className="min-w-0">
+                      <div className="font-semibold truncate">{it.name}</div>
+                      <div className="text-xs text-gray-500">
+                        {it.priceLabel ? `${it.priceLabel} · ` : ''}
+                        Qty: {it.qty} · {formatRupiah(it.price)}
+                      </div>
+                    </div>
+                    <div className="text-sm font-bold text-gray-800 whitespace-nowrap">
+                      {formatRupiah(it.price * it.qty)}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

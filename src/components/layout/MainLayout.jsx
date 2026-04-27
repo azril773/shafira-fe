@@ -20,14 +20,13 @@ import { CASHIER } from '../../constants/user'
 
 const cashierNavItems = [
   { to: '/pos/kasir', icon: ShoppingCart, label: 'Kasir' },
-  { to: '/pos/products', icon: Package, label: 'Produk' },
-  { to: '/pos/transactions', icon: ReceiptText, label: 'Transaksi' },
   { to: '/pos/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
 ]
 
 const inventoryNavItems = [
   { to: '/inventory/dashboard', icon: Monitor, label: 'Inventory' },
   { to: '/inventory/purchase', icon: ShoppingBag, label: 'Purchase' },
+  { to: '/inventory/transactions', icon: ReceiptText, label: 'Transaksi' },
 ]
 
 export default function MainLayout() {
