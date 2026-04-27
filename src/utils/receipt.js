@@ -10,7 +10,7 @@ export function formatDateTime(date = new Date()) {
   })
 }
 
-const LINE_WIDTH = 42
+const LINE_WIDTH = 10
 
 function padRight(text, length) {
   const str = String(text)
@@ -115,11 +115,11 @@ export function formatReceiptHtml({
         <title>Struk ${receiptId}</title>
         <style>
           body { font-family: monospace; margin: 0; padding: 0; }
-          .receipt { width: 80mm; padding: 8px; font-size: 12px; }
+          .receipt { width: 65mm; padding: 8px; font-size: 12px; }
           .center { text-align: center; }
           .bold { font-weight: bold; }
           .small { font-size: 11px; }
-          .right { text-align: right; }
+          .right { text-align: right; text-wrap: wrap; }
           .divider { border-top: 1px dashed #333; margin: 8px 0; }
           table { width: 100%; border-collapse: collapse; font-size: 12px; }
           td { padding: 2px 0; vertical-align: top; }
@@ -128,7 +128,7 @@ export function formatReceiptHtml({
           @media print {
             body { margin: 0; }
             .receipt { box-shadow: none; }
-            @page { size: 80mm auto; margin: 0; }
+            @page { size: 65mm auto; margin: 0; }
           }
         </style>
       </head>
