@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { formatRupiah } from '../../utils/format'
 import { printReceipt, printReceiptQZ, findQzPrinters, isQzLoaded } from '../../utils/receipt'
+import { createTransaction } from '../../services/transactionService'
+import { notification } from '../../utils/toast'
+import { useAuthStore } from '../../store/authStore'
 
 const PAYMENT_METHODS = ['Tunai', 'QRIS', 'Kartu Debit', 'Kartu Kredit']
 
@@ -11,6 +14,7 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
   const [loading, setLoading] = useState(false)
   const [qzStatus, setQzStatus] = useState('loading')
   const [printerName, setPrinterName] = useState('BSC10')
+  const user = useAuthStore((s) => s.user)
 
   const cashNum = Number(cash.replace(/\D/g, ''))
   const change = cashNum - total
@@ -20,12 +24,10 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
       setQzStatus('noqz')
       return
     }
-
     if (!isQzLoaded()) {
       setQzStatus('noqz')
       return
     }
-
     findQzPrinters()
       .then((printers) => {
         if (printers?.length > 0) {
@@ -45,14 +47,31 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
     if (method === 'Tunai' && cashNum < total) return
     setLoading(true)
     try {
-      // await transactionService.create({ items, total, paymentMethod: method })
-      await new Promise((r) => setTimeout(r, 600)) // simulasi
+      const payload = {
+        paymentMethod: method,
+        cashAmount: method === 'Tunai' ? cashNum : total,
+        transactionDetails: items.map((it) => ({
+          productId: it.id,
+          priceName: it.priceName || it.priceLabel || 'Default',
+          qty: it.qty,
+        })),
+      }
+      const { data: trx, error } = await createTransaction(payload)
+      if (error || !trx) {
+        notification('Gagal', error || 'Gagal menyimpan transaksi.', 'error')
+        return
+      }
 
       const receiptData = {
-        receiptId: `TRX-${Date.now()}`,
-        date: new Date().toLocaleString('id-ID'),
-        cashier: 'Kasir',
-        items,
+        receiptId: trx.transactionNo,
+        date: new Date(trx.createdAt || Date.now()).toLocaleString('id-ID'),
+        cashier: user?.name || user?.username || 'Kasir',
+        items: items.map((it) => ({
+          name: it.name,
+          qty: it.qty,
+          price: it.price,
+          priceLabel: it.priceLabel,
+        })),
         subtotal: total,
         total,
         paymentMethod: method,
@@ -65,35 +84,17 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
           await printReceiptQZ(receiptData, printerName)
         } catch (printError) {
           console.error('QZ Tray print error:', printError)
-          alert('Gagal mencetak lewat QZ Tray. Menggunakan print browser sebagai fallback.')
           printReceipt(receiptData)
         }
       } else {
-        if (qzStatus === 'loading') {
-          console.warn('QZ Tray masih loading, menggunakan browser print sebagai fallback.')
-        }
         printReceipt(receiptData)
       }
 
+      notification('Berhasil', `Transaksi ${trx.transactionNo} tersimpan.`, 'success')
       onSuccess()
     } catch (error) {
-      console.error('Print error:', error)
-      if (qzStatus === 'noqz' || qzStatus === 'no-printer' || qzStatus === 'error') {
-        alert('QZ Tray tidak tersedia atau tidak terhubung. Mencetak lewat browser print sebagai fallback.')
-        printReceipt({
-          receiptId: `TRX-${Date.now()}`,
-          date: new Date().toLocaleString('id-ID'),
-          cashier: 'Kasir',
-          items,
-          subtotal: total,
-          total,
-          paymentMethod: method,
-          cash: method === 'Tunai' ? cashNum : total,
-          change: method === 'Tunai' ? Math.max(0, cashNum - total) : 0,
-        })
-      } else {
-        alert('Terjadi masalah saat mengirim ke printer. Periksa QZ Tray.')
-      }
+      console.error(error)
+      notification('Gagal', 'Terjadi kesalahan saat memproses transaksi.', 'error')
     } finally {
       setLoading(false)
     }

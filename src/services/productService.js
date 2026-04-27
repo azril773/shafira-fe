@@ -54,12 +54,12 @@ export async function updateProduct({id, name, barcode, category, prices }) {
 }
 
 
-export async function searchProduct({ page, code, barcode }) {
+export async function searchProduct({ page, code, barcode, name }) {
   try {
-    const params = new URLSearchParams({ page });
-    if (code) params.code = code;
-    if (barcode) params.barcode = barcode;
-    console.log(params.toString());
+    const params = new URLSearchParams({ page: String(page ?? 1) });
+    if (code) params.append("code", code);
+    if (barcode) params.append("barcode", barcode);
+    if (name) params.append("name", name);
     const response = await api.get(`/products/search?${params.toString()}`, {});
     return {
       data: response.data.products,
