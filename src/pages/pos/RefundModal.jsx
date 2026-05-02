@@ -11,6 +11,7 @@ export default function RefundModal({ onClose, onSuccess }) {
   const [searching, setSearching] = useState(false)
   const [selectedTrx, setSelectedTrx] = useState(null)
   const [detailIds, setDetailIds] = useState([])
+  const [qtyMap, setQtyMap] = useState({}) // { [detailId]: number }
   const [reason, setReason] = useState('')
   const [pendingRefund, setPendingRefund] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -67,8 +68,8 @@ export default function RefundModal({ onClose, onSuccess }) {
     setSelectedTrx(trx)
     // pre-select item yang cocok dengan query barcode (jika ada)
     const q = query.trim().toLowerCase()
-    const initial = (trx.transactionDetails || [])
-      .filter((d) => !d.isRefund)
+    const refundable = (trx.transactionDetails || []).filter((d) => !d.isRefund)
+    const initial = refundable
       .filter((d) =>
         q
           ? d.historicalBarcode?.toLowerCase().includes(q) ||
@@ -77,13 +78,24 @@ export default function RefundModal({ onClose, onSuccess }) {
       )
       .map((d) => d.id)
     setDetailIds(initial)
+    setQtyMap(
+      Object.fromEntries(refundable.map((d) => [d.id, d.qty])),
+    )
     setReason('')
   }
 
-  const toggleDetail = (id) => {
+  const toggleDetail = (id, fullQty) => {
     setDetailIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     )
+    setQtyMap((prev) => ({ ...prev, [id]: prev[id] || fullQty }))
+  }
+
+  const setQtyFor = (id, value, max) => {
+    let next = parseInt(value, 10)
+    if (Number.isNaN(next) || next < 1) next = 1
+    if (next > max) next = max
+    setQtyMap((prev) => ({ ...prev, [id]: next }))
   }
 
   const requestRefund = () => {
@@ -99,12 +111,18 @@ export default function RefundModal({ onClose, onSuccess }) {
     setPendingRefund(true)
   }
 
-  const onAdminVerified = async () => {
+  const onAdminVerified = async (creds) => {
     setPendingRefund(false)
     setSubmitting(true)
+    const items = detailIds.map((id) => ({
+      detailId: id,
+      qty: qtyMap[id] || 1,
+    }))
     const { data, error } = await refundTransaction(selectedTrx.id, {
-      detailIds,
+      items,
       reason: reason.trim(),
+      verifierUsername: creds?.username,
+      verifierPassword: creds?.password,
     })
     setSubmitting(false)
     if (error || !data) {
@@ -119,7 +137,13 @@ export default function RefundModal({ onClose, onSuccess }) {
   const refundableDetails = (selectedTrx?.transactionDetails || []).filter((d) => !d.isRefund)
   const refundTotal = refundableDetails
     .filter((d) => detailIds.includes(d.id))
-    .reduce((sum, d) => sum + Number(d.historicalPrice) * d.qty, 0)
+    .reduce(
+      (sum, d) => sum + Number(d.historicalPrice) * (qtyMap[d.id] || 0),
+      0,
+    )
+  const refundTotalQty = refundableDetails
+    .filter((d) => detailIds.includes(d.id))
+    .reduce((sum, d) => sum + (qtyMap[d.id] || 0), 0)
 
   return (
     <>
@@ -224,18 +248,22 @@ export default function RefundModal({ onClose, onSuccess }) {
                         <th className="py-2 w-8"></th>
                         <th className="text-left py-2 font-medium">Produk</th>
                         <th className="text-left py-2 font-medium">Barcode</th>
-                        <th className="text-right py-2 font-medium">Qty</th>
+                        <th className="text-right py-2 font-medium">Tersedia</th>
+                        <th className="text-right py-2 font-medium">Qty Retur</th>
                         <th className="text-right py-2 font-medium">Subtotal</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {refundableDetails.map((d) => (
+                      {refundableDetails.map((d) => {
+                        const checked = detailIds.includes(d.id)
+                        const refundQty = qtyMap[d.id] || d.qty
+                        return (
                         <tr key={d.id} className="border-b border-gray-50 hover:bg-orange-50/50">
                           <td className="py-2">
                             <input
                               type="checkbox"
-                              checked={detailIds.includes(d.id)}
-                              onChange={() => toggleDetail(d.id)}
+                              checked={checked}
+                              onChange={() => toggleDetail(d.id, d.qty)}
                               className="h-4 w-4 accent-orange-500"
                             />
                           </td>
@@ -249,11 +277,23 @@ export default function RefundModal({ onClose, onSuccess }) {
                             </span>
                           </td>
                           <td className="py-2 text-right">{d.qty}</td>
+                          <td className="py-2 text-right">
+                            <input
+                              type="number"
+                              min={1}
+                              max={d.qty}
+                              disabled={!checked}
+                              value={refundQty}
+                              onChange={(e) => setQtyFor(d.id, e.target.value, d.qty)}
+                              className="w-16 px-2 py-1 border border-gray-200 rounded text-right text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:bg-gray-50 disabled:text-gray-400"
+                            />
+                          </td>
                           <td className="py-2 text-right font-semibold">
-                            {formatRupiah(Number(d.historicalPrice) * d.qty)}
+                            {formatRupiah(Number(d.historicalPrice) * (checked ? refundQty : 0))}
                           </td>
                         </tr>
-                      ))}
+                        )
+                      })}
                     </tbody>
                   </table>
                 )}
@@ -269,9 +309,15 @@ export default function RefundModal({ onClose, onSuccess }) {
                 />
               </div>
               <div className="flex items-center justify-between gap-3 border-t border-gray-100 px-5 py-4">
-                <div className="text-sm">
-                  <span className="text-gray-500">Total Refund: </span>
-                  <span className="font-bold text-orange-600">{formatRupiah(refundTotal)}</span>
+                <div className="text-sm space-y-0.5">
+                  <div>
+                    <span className="text-gray-500">Total Qty: </span>
+                    <span className="font-bold text-gray-800">{refundTotalQty}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Total Refund: </span>
+                    <span className="font-bold text-orange-600">{formatRupiah(refundTotal)}</span>
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <button

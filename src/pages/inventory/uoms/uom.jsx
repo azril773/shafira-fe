@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import { Pencil, Trash2 } from "lucide-react";
 import {
@@ -7,6 +7,9 @@ import {
   getUoms,
   updateUom,
 } from "../../../services/uomService";
+import PaginationTableNoLink from "../../../components/globals/pagination";
+
+const PAGE_SIZE = 10;
 
 const emptyForm = { code: "", name: "", description: "" };
 
@@ -16,6 +19,7 @@ export default function UomPage() {
   const [editingId, setEditingId] = useState(null);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
 
   const load = async () => {
     const { data, error } = await getUoms();
@@ -29,6 +33,16 @@ export default function UomPage() {
   useEffect(() => {
     load();
   }, []);
+
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const pagedItems = useMemo(
+    () => items.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [items, page],
+  );
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   const validate = () => {
     const e = {};
@@ -124,7 +138,7 @@ export default function UomPage() {
                   </td>
                 </tr>
               ) : (
-                items.map((u) => (
+                pagedItems.map((u) => (
                   <tr key={u.id} className="border-t border-orange-50 hover:bg-orange-50/40">
                     <td className="px-4 py-3 font-semibold text-gray-800">{u.code}</td>
                     <td className="px-4 py-3">{u.name}</td>
@@ -154,6 +168,11 @@ export default function UomPage() {
               )}
             </tbody>
           </table>
+          <PaginationTableNoLink
+            currentPage={page}
+            setCurrentPage={setPage}
+            totalPages={totalPages}
+          />
         </div>
 
         <div className="space-y-4 rounded-[32px] border border-orange-100 bg-white p-5 shadow-sm">

@@ -45,20 +45,22 @@ export async function createTransaction(payload) {
   }
 }
 
-export async function voidTransaction(id) {
+export async function voidTransaction(id, payload = {}) {
   try {
-    const response = await api.put(`/transactions/${id}/void`);
+    const response = await api.put(`/transactions/${id}/void`, payload);
     return { data: response.data, error: "" };
   } catch (error) {
     return { data: null, error: getErrorMessage(error) };
   }
 }
 
-export async function refundTransaction(id, { detailIds, reason }) {
+export async function refundTransaction(id, { items, reason, verifierUsername, verifierPassword }) {
   try {
     const response = await api.put(`/transactions/${id}/refund`, {
-      detailIds,
+      items,
       reason,
+      ...(verifierUsername ? { verifierUsername } : {}),
+      ...(verifierPassword ? { verifierPassword } : {}),
     });
     return { data: response.data, error: "" };
   } catch (error) {

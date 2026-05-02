@@ -233,6 +233,7 @@ export default function ReportsPage() {
               refundDetails.push({
                 "No Transaksi": t.transactionNo,
                 Tanggal: formatDate(t.createdAt),
+                Barcode: d.historicalBarcode || "-",
                 Produk: d.historicalName,
                 Qty: d.qty,
                 Harga: Number(d.historicalPrice) || 0,
@@ -250,6 +251,7 @@ export default function ReportsPage() {
           headers: [
             "No Transaksi",
             "Tanggal",
+            "Barcode",
             "Produk",
             "Qty",
             "Harga",
@@ -281,6 +283,7 @@ export default function ReportsPage() {
               Tanggal: formatDate(p.purchaseDate),
               Vendor: p.vendor?.name || "-",
               Status: p.status,
+              Barcode: d.product?.barcode || "-",
               Produk: d.product?.name || "-",
               Qty: d.qty,
               "Harga Beli": Number(d.purchasePrice) || 0,
@@ -293,6 +296,7 @@ export default function ReportsPage() {
             "Tanggal",
             "Vendor",
             "Status",
+            "Barcode",
             "Produk",
             "Qty",
             "Harga Beli",
@@ -546,7 +550,8 @@ export default function ReportsPage() {
                   {report.headers.map((h) => (
                     <td key={h} className="px-4 py-3 whitespace-nowrap">
                       {typeof row[h] === "number" &&
-                      /Total|Harga|Subtotal|Nilai/i.test(h)
+                      /Total|Harga|Subtotal|Nilai/i.test(h) &&
+                      !/qty/i.test(h)
                         ? formatRupiah(row[h])
                         : String(row[h] ?? "-")}
                     </td>

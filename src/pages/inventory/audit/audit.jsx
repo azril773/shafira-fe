@@ -47,29 +47,35 @@ function describeLog(log) {
   const p = log.payload || {};
   switch (log.action) {
     case "VOID_ITEM": {
-      const name = p.productName || p.product || "item";
+      const name = p.productName || p.product || p.name || "item";
       const qty = p.qty ?? p.quantity;
-      return `Membatalkan item "${name}"${qty ? ` sebanyak ${qty}` : ""} pada transaksi berjalan.`;
+      const barcode = p.barcode ? ` [${p.barcode}]` : "";
+      return `Membatalkan item "${name}"${barcode}${qty ? ` sebanyak ${qty} qty` : ""} pada transaksi berjalan.`;
     }
     case "ABORT_SALE": {
-      const items = p.itemCount ?? (Array.isArray(p.items) ? p.items.length : null);
+      const items = Array.isArray(p.items) ? p.items : [];
+      const totalQty = p.totalQty ?? items.reduce((s, it) => s + (Number(it.qty) || 0), 0);
       const total = p.total ?? p.totalPrice;
       const parts = ["Membatalkan seluruh penjualan yang sedang berjalan"];
-      if (items) parts.push(`${items} item`);
+      if (totalQty) parts.push(`total qty ${totalQty}`);
       if (total != null) parts.push(`senilai ${formatRupiah(total)}`);
       return parts.join(" — ") + ".";
     }
     case "VOID_TRX": {
       const trx = p.transactionNo || log.entityId;
       const total = p.totalPrice ?? p.total;
-      return `Void transaksi ${trx || ""}${total != null ? ` senilai ${formatRupiah(total)}` : ""}.`;
+      const totalQty = p.totalQty;
+      const parts = [`Void transaksi ${trx || ""}`];
+      if (totalQty != null) parts.push(`total qty ${totalQty}`);
+      if (total != null) parts.push(`senilai ${formatRupiah(total)}`);
+      return parts.join(" — ") + ".";
     }
     case "REFUND_TRX": {
       const trx = p.transactionNo || log.entityId;
       const qty = p.refundedQty;
       const amount = p.refundedAmount;
       const parts = [`Refund transaksi ${trx || ""}`];
-      if (qty != null) parts.push(`${qty} item`);
+      if (qty != null) parts.push(`total qty ${qty}`);
       if (amount != null) parts.push(`senilai ${formatRupiah(amount)}`);
       return parts.join(" — ") + ".";
     }
@@ -85,6 +91,27 @@ function describeLog(log) {
     default:
       return "-";
   }
+}
+
+function refundItemsList(log) {
+  if (log.action !== "REFUND_TRX") return null;
+  const items = log.payload?.refundedItems;
+  if (!Array.isArray(items) || items.length === 0) return null;
+  return (
+    <ul className="mt-1 list-disc pl-4 space-y-0.5 text-[11px] text-gray-600">
+      {items.map((it, idx) => (
+        <li key={idx}>
+          <span className="font-medium">{it.name}</span>
+          {it.barcode ? <span className="text-gray-400"> [{it.barcode}]</span> : null}
+          {" — "}
+          <span>{it.qty} qty</span>
+          {it.price != null ? (
+            <span className="text-gray-500"> @ {formatRupiah(it.price)}</span>
+          ) : null}
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 export default function AuditLogPage() {
@@ -182,6 +209,7 @@ export default function AuditLogPage() {
                   <p className="max-w-sm text-xs text-gray-600">
                     {describeLog(log)}
                   </p>
+                  {refundItemsList(log)}
                 </td>
               </tr>
             ))}

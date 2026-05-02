@@ -15,6 +15,7 @@ import {
   USER_STATUS_REJECTED,
 } from "../../../constants/user";
 import AdminVerifyModal from "../../../components/globals/AdminVerifyModal";
+import PaginationTableNoLink from "../../../components/globals/pagination";
 
 const STATUS_BADGE = {
   [USER_STATUS_PENDING]: "bg-yellow-100 text-yellow-700",
@@ -39,9 +40,12 @@ export default function UsersPage() {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [verify, setVerify] = useState(null); // { user, approve, role }
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   const load = async () => {
-    const { data, error } = await listUsers({
+    const { data, totalPages: tp, error } = await listUsers({
+      page,
       status: filterStatus || undefined,
       role: filterRole || undefined,
       search: search || undefined,
@@ -51,12 +55,13 @@ export default function UsersPage() {
       return;
     }
     setUsers(data);
+    setTotalPages(tp || 1);
   };
 
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterStatus, filterRole]);
+  }, [filterStatus, filterRole, page]);
 
   const resetForm = () => {
     setForm(emptyForm);
@@ -144,7 +149,10 @@ export default function UsersPage() {
           Status
           <select
             value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
+            onChange={(e) => {
+              setFilterStatus(e.target.value);
+              setPage(1);
+            }}
             className="mt-2 w-full rounded-xl border border-orange-200 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300"
           >
             <option value="">Semua</option>
@@ -157,7 +165,10 @@ export default function UsersPage() {
           Role
           <select
             value={filterRole}
-            onChange={(e) => setFilterRole(e.target.value)}
+            onChange={(e) => {
+              setFilterRole(e.target.value);
+              setPage(1);
+            }}
             className="mt-2 w-full rounded-xl border border-orange-200 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300"
           >
             <option value="">Semua</option>
@@ -175,13 +186,21 @@ export default function UsersPage() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && load()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  setPage(1);
+                  load();
+                }
+              }}
               placeholder="Username..."
               className="w-full rounded-xl border border-orange-200 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300"
             />
             <button
               type="button"
-              onClick={load}
+              onClick={() => {
+                setPage(1);
+                load();
+              }}
               className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600"
             >
               Cari
@@ -257,20 +276,27 @@ export default function UsersPage() {
                       >
                         <Pencil size={14} />
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(u)}
-                        className="rounded-full border border-red-200 px-2 py-1 text-red-600 hover:bg-red-50"
-                        title="Hapus"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      {u.username !== "admin" && (
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(u)}
+                          className="rounded-full border border-red-200 px-2 py-1 text-red-600 hover:bg-red-50"
+                          title="Hapus"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          <PaginationTableNoLink
+            currentPage={page}
+            setCurrentPage={setPage}
+            totalPages={totalPages}
+          />
         </div>
 
         <div className="rounded-3xl border border-orange-100 bg-white p-5 shadow-sm">

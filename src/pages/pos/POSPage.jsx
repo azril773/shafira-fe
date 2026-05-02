@@ -164,6 +164,7 @@ export default function POSPage() {
           ? {
               productId: target.id || target.productId,
               name: target.name,
+              barcode: target.barcode || null,
               qty: target.qty,
               priceName: target.priceName,
               price: target.price,
@@ -175,17 +176,23 @@ export default function POSPage() {
       const snapshot = items.map((it) => ({
         productId: it.id || it.productId,
         name: it.name,
+        barcode: it.barcode || null,
         qty: it.qty,
         priceName: it.priceName,
         price: it.price,
       }))
+      const totalQty = snapshot.reduce((s, it) => s + (Number(it.qty) || 0), 0)
+      const total = snapshot.reduce(
+        (s, it) => s + (Number(it.price) || 0) * (Number(it.qty) || 0),
+        0,
+      )
       clearCart()
       await createAuditLog({
         action: 'ABORT_SALE',
         verifierUsername: creds?.username,
         verifierPassword: creds?.password,
         reason: 'Abort penjualan sebelum checkout',
-        payload: { items: snapshot },
+        payload: { items: snapshot, totalQty, total },
       })
       notification('Abort', 'Transaksi dibatalkan oleh admin.', 'success')
     }

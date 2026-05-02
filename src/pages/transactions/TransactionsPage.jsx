@@ -98,8 +98,12 @@ export default function TransactionsPage() {
       notification('Gagal', 'Alasan retur harus diisi.', 'error')
       return
     }
+    const items = refundDetailIds.map((detailId) => {
+      const d = (selected.transactionDetails || []).find((x) => x.id === detailId)
+      return { detailId, qty: d?.qty || 1 }
+    })
     const { data, error } = await refundTransaction(selected.id, {
-      detailIds: refundDetailIds,
+      items,
       reason: refundReason.trim(),
     })
     if (error) {
