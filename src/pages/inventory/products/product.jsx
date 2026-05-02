@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { formatRupiah } from "../../../utils/format";
 import { createProduct, searchProduct } from "../../../services/productService";
+import { getUoms } from "../../../services/uomService";
 import { toast } from "react-toastify";
 import { validateBarcode } from "../../../utils/utils";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -21,6 +22,8 @@ export default function ProductPage() {
   const [price, setPrice] = useState("");
   const [prices, setPrices] = useState([{ name: "Harga Utama", price: 0 }]);
   const [priceListText, setPriceListText] = useState("");
+  const [uomList, setUomList] = useState([]);
+  const [uomId, setUomId] = useState("");
 
   const [refresh, setRefresh] = useState("");
   const [currentPage, setCurrentPage] = useState(parseInt(page));
@@ -80,6 +83,10 @@ export default function ProductPage() {
 
   useEffect(() => {
     loadData();
+    (async () => {
+      const { data } = await getUoms();
+      setUomList(data || []);
+    })();
   }, []);
 
   const handleCreateProduct = async () => {
@@ -88,6 +95,7 @@ export default function ProductPage() {
       barcode,
       category,
       prices,
+      uomId: uomId || null,
     });
     if (error.length > 0) {
       toast.error(error);
@@ -98,6 +106,7 @@ export default function ProductPage() {
       setCategory("");
       setPrice({});
       setBarcode("");
+      setUomId("");
       loadData();
       setRefresh(new Date().toISOString());
     }
@@ -130,6 +139,7 @@ export default function ProductPage() {
                   <th className="px-4 py-3">Barcode</th>
                   <th className="px-4 py-3">Item</th>
                   <th className="px-4 py-3">Harga</th>
+                  <th className="px-4 py-3">Satuan</th>
                   <th className="px-4 py-3">Stok</th>
                 </tr>
               </thead>
@@ -153,6 +163,7 @@ export default function ProductPage() {
                         </span>
                       )}
                     </td>
+                    <td className="px-4 py-3 text-gray-600">{item.uom?.code || "-"}</td>
                     <td className="px-4 py-3">{item.stock}</td>
                   </tr>
                 ))}
@@ -389,6 +400,21 @@ export default function ProductPage() {
                   {error.barcode && (
                     <p className="mt-1 text-xs text-red-500">{error.barcode}</p>
                   )}
+                </label>
+                <label className="block">
+                  <span className="text-gray-600">Satuan (UoM)</span>
+                  <select
+                    value={uomId}
+                    onChange={(e) => setUomId(e.target.value)}
+                    className="mt-2 w-full rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  >
+                    <option value="">-- pilih satuan --</option>
+                    {uomList.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.code} - {u.name}
+                      </option>
+                    ))}
+                  </select>
                 </label>
                 <button
                   type="button"

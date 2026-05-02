@@ -20,13 +20,14 @@ export async function getProducts() {
     };
   }
 }
-export async function createProduct({ name, barcode, category, prices }) {
+export async function createProduct({ name, barcode, category, prices, uomId }) {
   try {
     const response = await api.post("/products", {
       name,
       barcode,
       category,
       ...(prices ? { prices } : {}),
+      ...(uomId ? { uomId } : {}),
     });
     return { data: response.data, error: "" };
   } catch (error) {
@@ -36,13 +37,14 @@ export async function createProduct({ name, barcode, category, prices }) {
     };
   }
 }
-export async function updateProduct({id, name, barcode, category, prices }) {
+export async function updateProduct({id, name, barcode, category, prices, uomId }) {
   try {
     const response = await api.put(`/products/${id}`, {
       name,
       barcode,
       category,
       ...(prices ? { prices } : {}),
+      uomId: uomId ?? null,
     });
     return { data: response.data, error: "" };
   } catch (error) {

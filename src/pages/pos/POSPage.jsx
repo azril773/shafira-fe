@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Search, Plus, Minus, Trash2, Keyboard, Ban, XOctagon, RotateCcw } from 'lucide-react'
+import { Search, Plus, Minus, Trash2, Keyboard, Ban, XOctagon, RotateCcw, PauseCircle, PlayCircle, X } from 'lucide-react'
 import { useCartStore } from '../../store/cartStore'
 import { formatRupiah } from '../../utils/format'
 import CheckoutModal from './CheckoutModal'
@@ -7,6 +7,7 @@ import RefundModal from './RefundModal'
 import { searchProduct } from '../../services/productService'
 import { notification } from '../../utils/toast'
 import AdminVerifyModal from '../../components/globals/AdminVerifyModal'
+import { createAuditLog } from '../../services/auditLogService'
 
 const SHORTCUTS = [
   { keys: 'F2', desc: 'Fokus scan barcode' },
@@ -15,6 +16,7 @@ const SHORTCUTS = [
   { keys: 'Enter di Qty', desc: 'Pindah ke scan barcode' },
   { keys: '+ / -', desc: 'Tambah / kurangi nilai Qty' },
   { keys: 'F9', desc: 'Bayar / Checkout' },
+  { keys: 'F8', desc: 'Suspend / Tahan transaksi' },
   { keys: 'F6', desc: 'Void item (perlu admin)' },
   { keys: 'F7', desc: 'Abort transaksi (perlu admin)' },
   { keys: 'F10', desc: 'Refund transaksi (perlu admin)' },
@@ -37,12 +39,15 @@ export default function POSPage() {
   // Modal pemilihan item untuk di-void
   const [voidPicker, setVoidPicker] = useState(false)
   const [showRefund, setShowRefund] = useState(false)
+  const [showSuspendList, setShowSuspendList] = useState(false)
+  const [showSuspendPrompt, setShowSuspendPrompt] = useState(false)
+  const [suspendLabel, setSuspendLabel] = useState('')
 
   const barcodeRef = useRef(null)
   const searchRef = useRef(null)
   const qtyRef = useRef(null)
 
-  const { items, addItem, removeItem, updateQty, clearCart, getTotal } =
+  const { items, addItem, removeItem, updateQty, clearCart, getTotal, suspended, suspendCurrent, resumeSuspended, removeSuspended } =
     useCartStore()
 
   const itemTotal = items.reduce((sum, item) => sum + item.qty, 0)
@@ -76,6 +81,9 @@ export default function POSPage() {
         priceLabel: priceOption.name,
         priceName: priceOption.name,
         price: Number(priceOption.price),
+        uomId: product.uomId || product.uom?.id || null,
+        uomCode: product.uom?.code || null,
+        uomName: product.uom?.name || null,
       },
       qty,
     )
@@ -142,16 +150,67 @@ export default function POSPage() {
     if (items.length === 0) return
     setAdminAction({ type: 'abort' })
   }
-  const handleAdminVerified = () => {
+  const handleAdminVerified = async (creds) => {
     if (!adminAction) return
     if (adminAction.type === 'void') {
+      const target = items.find((it) => it.key === adminAction.key)
       removeItem(adminAction.key)
+      await createAuditLog({
+        action: 'VOID_ITEM',
+        verifierUsername: creds?.username,
+        verifierPassword: creds?.password,
+        reason: 'Void item sebelum checkout',
+        payload: target
+          ? {
+              productId: target.id || target.productId,
+              name: target.name,
+              qty: target.qty,
+              priceName: target.priceName,
+              price: target.price,
+            }
+          : null,
+      })
       notification('Void', 'Item berhasil dihapus oleh admin.', 'success')
     } else if (adminAction.type === 'abort') {
+      const snapshot = items.map((it) => ({
+        productId: it.id || it.productId,
+        name: it.name,
+        qty: it.qty,
+        priceName: it.priceName,
+        price: it.price,
+      }))
       clearCart()
+      await createAuditLog({
+        action: 'ABORT_SALE',
+        verifierUsername: creds?.username,
+        verifierPassword: creds?.password,
+        reason: 'Abort penjualan sebelum checkout',
+        payload: { items: snapshot },
+      })
       notification('Abort', 'Transaksi dibatalkan oleh admin.', 'success')
     }
     setAdminAction(null)
+  }
+
+  // Suspend transaksi aktif
+  const handleSuspend = () => {
+    if (items.length === 0) return
+    setSuspendLabel('')
+    setShowSuspendPrompt(true)
+  }
+  const confirmSuspend = () => {
+    const entry = suspendCurrent(suspendLabel)
+    setShowSuspendPrompt(false)
+    if (entry) {
+      notification('Suspend', `Transaksi ditahan: ${entry.label}`, 'success')
+    }
+  }
+  const handleResume = (id) => {
+    const ok = resumeSuspended(id)
+    if (ok) {
+      setShowSuspendList(false)
+      notification('Resume', 'Transaksi yang ditahan dipanggil kembali.', 'success')
+    }
   }
 
   // Keyboard shortcuts
@@ -159,6 +218,14 @@ export default function POSPage() {
     const handler = (e) => {
       // Escape: tutup modal/popup atau reset
       if (e.key === 'Escape') {
+        if (showSuspendPrompt) {
+          setShowSuspendPrompt(false)
+          return
+        }
+        if (showSuspendList) {
+          setShowSuspendList(false)
+          return
+        }
         if (adminAction) {
           setAdminAction(null)
           return
@@ -200,7 +267,7 @@ export default function POSPage() {
       }
 
       // Jika sedang ada modal/popup, abaikan shortcut lain
-      if (showCheckout || productSelection || priceSelection || showShortcuts || adminAction || voidPicker || showRefund) return
+      if (showCheckout || productSelection || priceSelection || showShortcuts || adminAction || voidPicker || showRefund || showSuspendList || showSuspendPrompt) return
 
       // F1: bantuan shortcut
       if (e.key === 'F1') {
@@ -274,6 +341,13 @@ export default function POSPage() {
         return
       }
 
+      // F8: suspend transaksi aktif
+      if (e.key === 'F8') {
+        e.preventDefault()
+        handleSuspend()
+        return
+      }
+
       // Ctrl + ArrowUp/Down: ubah qty item terakhir
       if (e.ctrlKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
         if (items.length === 0) return
@@ -290,6 +364,8 @@ export default function POSPage() {
     search,
     barcode,
     scanQty,
+    showSuspendList,
+    showSuspendPrompt,
     showCheckout,
     productSelection,
     priceSelection,
@@ -436,7 +512,14 @@ export default function POSPage() {
                         <tr key={item.key} className="text-sm border-b border-orange-50 hover:bg-orange-50/50">
                           <td className="px-5 py-4 text-gray-700 font-medium">
                             {item.name}
-                            {item.priceLabel && <div className="mt-1 text-xs text-gray-500">{item.priceLabel}</div>}
+                            <div className="mt-1 flex flex-wrap gap-2 text-xs text-gray-500">
+                              {item.priceLabel && <span>{item.priceLabel}</span>}
+                              {item.uomCode && (
+                                <span className="rounded-full bg-orange-100 px-2 py-0.5 font-semibold text-orange-700">
+                                  {item.uomCode}
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-5 py-4">
                             <div className="inline-flex items-center gap-1.5 bg-orange-50 rounded-full px-2 py-1">
@@ -454,6 +537,11 @@ export default function POSPage() {
                                 <Plus size={12} />
                               </button>
                             </div>
+                            {item.uomCode && (
+                              <div className="mt-1 text-[10px] uppercase tracking-wide text-gray-400">
+                                {item.uomCode}
+                              </div>
+                            )}
                           </td>
                           <td className="px-5 py-4 text-gray-600">{formatRupiah(item.price)}</td>
                           <td className="px-5 py-4 text-right font-bold text-gray-800">{formatRupiah(item.price * item.qty)}</td>
@@ -594,6 +682,24 @@ export default function POSPage() {
                       <RotateCcw size={14} /> Refund (F10)
                     </button>
                   </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={handleSuspend}
+                      disabled={items.length === 0}
+                      title="Tahan transaksi"
+                      className="inline-flex items-center justify-center gap-1 rounded-full border border-white/30 bg-white/10 px-2 py-2 text-xs font-semibold text-white hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <PauseCircle size={14} /> Suspend (F8)
+                    </button>
+                    <button
+                      onClick={() => setShowSuspendList(true)}
+                      disabled={suspended.length === 0}
+                      title="Lihat transaksi yang ditahan"
+                      className="inline-flex items-center justify-center gap-1 rounded-full border border-white/30 bg-white/10 px-2 py-2 text-xs font-semibold text-white hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <PlayCircle size={14} /> Resume ({suspended.length})
+                    </button>
+                  </div>
                   <button
                     onClick={() => setShowCheckout(true)}
                     disabled={items.length === 0}
@@ -706,7 +812,7 @@ export default function POSPage() {
                       <div className="font-semibold truncate">{it.name}</div>
                       <div className="text-xs text-gray-500">
                         {it.priceLabel ? `${it.priceLabel} · ` : ''}
-                        Qty: {it.qty} · {formatRupiah(it.price)}
+                        Qty: {it.qty}{it.uomCode ? ` ${it.uomCode}` : ''} · {formatRupiah(it.price)}
                       </div>
                     </div>
                     <div className="text-sm font-bold text-gray-800 whitespace-nowrap">
@@ -714,6 +820,110 @@ export default function POSPage() {
                     </div>
                   </button>
                 ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showSuspendPrompt && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+            <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900">Tahan Transaksi</h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Beri label opsional supaya transaksi mudah dipanggil kembali.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowSuspendPrompt(false)}
+                  className="rounded-full bg-orange-50 p-2 text-gray-500 hover:bg-orange-100"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              <input
+                autoFocus
+                type="text"
+                value={suspendLabel}
+                onChange={(e) => setSuspendLabel(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && confirmSuspend()}
+                placeholder="Misal: Pak Budi"
+                className="mt-4 w-full rounded-full border border-orange-200 bg-orange-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+              />
+              <div className="mt-5 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowSuspendPrompt(false)}
+                  className="rounded-full border border-orange-200 px-4 py-2 text-sm font-semibold text-orange-700 hover:bg-orange-50"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmSuspend}
+                  className="rounded-full bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600"
+                >
+                  Tahan
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showSuspendList && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+            <div className="w-full max-w-xl rounded-3xl bg-white p-6 shadow-2xl">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900">Transaksi Ditahan</h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Pilih transaksi untuk dipanggil kembali. Keranjang aktif akan ikut ditahan otomatis.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowSuspendList(false)}
+                  className="rounded-full bg-orange-50 p-2 text-gray-500 hover:bg-orange-100"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="mt-5 grid gap-2 max-h-[420px] overflow-y-auto">
+                {suspended.length === 0 ? (
+                  <p className="text-sm text-gray-500 py-6 text-center">Belum ada transaksi ditahan.</p>
+                ) : (
+                  suspended.map((s) => {
+                    const subtotal = s.items.reduce((sum, i) => sum + i.price * i.qty, 0)
+                    const qty = s.items.reduce((sum, i) => sum + i.qty, 0)
+                    return (
+                      <div
+                        key={s.id}
+                        className="flex items-center justify-between gap-3 rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-gray-700"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => handleResume(s.id)}
+                          className="flex-1 text-left"
+                        >
+                          <div className="font-semibold">{s.label}</div>
+                          <div className="text-xs text-gray-500">
+                            {qty} item · {formatRupiah(subtotal)} · {new Date(s.savedAt).toLocaleTimeString('id-ID')}
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeSuspended(s.id)}
+                          title="Hapus suspend"
+                          className="rounded-full bg-white p-2 text-red-500 hover:bg-red-50"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    )
+                  })
+                )}
               </div>
             </div>
           </div>

@@ -6,7 +6,7 @@ import { createTransaction } from '../../services/transactionService'
 import { notification } from '../../utils/toast'
 import { useAuthStore } from '../../store/authStore'
 
-const PAYMENT_METHODS = ['Tunai', 'QRIS', 'Kartu Debit', 'Kartu Kredit']
+const PAYMENT_METHODS = ['Tunai', 'QRIS', 'Kartu Debit']
 
 export default function CheckoutModal({ total, items = [], mode = 'sale', onClose, onSuccess }) {
   const [method, setMethod] = useState('Tunai')
@@ -39,7 +39,7 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
       // Pintasan metode pembayaran 1-4 (saat tidak fokus pada input uang)
       const tag = (e.target?.tagName || '').toLowerCase()
       const isInput = tag === 'input' || tag === 'textarea'
-      if (!isInput && ['1', '2', '3', '4'].includes(e.key)) {
+      if (!isInput && ['1', '2', '3'].includes(e.key)) {
         const idx = Number(e.key) - 1
         if (PAYMENT_METHODS[idx]) {
           e.preventDefault()
@@ -95,6 +95,7 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
           productId: it.id,
           priceName: it.priceName || it.priceLabel || 'Default',
           qty: it.qty,
+          ...(it.uomId ? { uomId: it.uomId } : {}),
         })),
       }
       const { data: trx, error } = await createTransaction(payload)
@@ -112,6 +113,7 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
           qty: it.qty,
           price: it.price,
           priceLabel: it.priceLabel,
+          uomCode: it.uomCode,
         })),
         subtotal: total,
         total,

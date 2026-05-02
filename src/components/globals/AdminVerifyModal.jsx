@@ -35,7 +35,7 @@ export default function AdminVerifyModal({
       setError(err || 'Verifikasi gagal.')
       return
     }
-    onVerified?.()
+    onVerified?.({ username, password })
   }
 
   // Esc untuk batal

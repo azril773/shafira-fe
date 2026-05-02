@@ -27,8 +27,11 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 const topNavItems = [
   { id: "products", label: "Product", href: "/inventory/products" },
   { id: "vendors", label: "Vendor", href: "/inventory/vendors" },
+  { id: "uoms", label: "UoM", href: "/inventory/uoms" },
   { id: "purchases", label: "Pembelian", href: "/inventory/purchases" },
   { id: "transactions", label: "Transaksi", href: "/inventory/transactions" },
+  { id: "users", label: "User", href: "/inventory/users" },
+  { id: "audit-logs", label: "Audit Log", href: "/inventory/audit-logs" },
   { id: "reports", label: "Report", href: "/inventory/reports" },
 ];
 

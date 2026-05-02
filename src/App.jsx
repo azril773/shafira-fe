@@ -15,6 +15,10 @@ import EditPurchasePage from "./pages/inventory/purchase/edit";
 import VendorPage from "./pages/inventory/vendors/vendor";
 import EditVendorPage from "./pages/inventory/vendors/edit";
 import InventoryTransactionsPage from "./pages/inventory/transactions/transactions";
+import UomPage from "./pages/inventory/uoms/uom";
+import UsersPage from "./pages/inventory/users/users";
+import AuditLogPage from "./pages/inventory/audit/audit";
+import ReportsPage from "./pages/inventory/reports/reports";
 
 function PrivateRoute() {
   const { isAuthenticated } = useAuthStore();
@@ -66,6 +70,10 @@ function InventoryRoutes() {
         <Route path="purchases/edit/:id" element={<EditPurchasePage />} />
         <Route path="vendors" element={<VendorPage />} /> 
         <Route path="vendors/edit/:id" element={<EditVendorPage />} /> 
+        <Route path="uoms" element={<UomPage />} />
+        <Route path="users" element={<UsersPage />} />
+        <Route path="audit-logs" element={<AuditLogPage />} />
+        <Route path="reports" element={<ReportsPage />} />
         <Route path="transactions" element={<InventoryTransactionsPage />} />
       </Route>
     </Routes>

@@ -4,6 +4,7 @@ import {
   productService,
   updateProduct,
 } from "../../../services/productService";
+import { getUoms } from "../../../services/uomService";
 import { toast } from "react-toastify";
 import { validateBarcode } from "../../../utils/utils";
 
@@ -17,6 +18,8 @@ export default function EditProductPage() {
   const [category, setCategory] = useState("");
   const [prices, setPrices] = useState([]);
   const [barcode, setBarcode] = useState("");
+  const [uomId, setUomId] = useState("");
+  const [uomList, setUomList] = useState([]);
   // const [form, setForm] = useState({
   //   name: "",
   //   barcode: "",
@@ -31,6 +34,7 @@ export default function EditProductPage() {
     setName(product.name || "");
     setCategory(product.category || "");
     setBarcode(product.barcode || "");
+    setUomId(product.uomId || product.uom?.id || "");
     const mainPrice = product.price || 0;
     const additionalPrices = product.prices || [];
     setPrices(
@@ -40,6 +44,13 @@ export default function EditProductPage() {
       })) || [],
     );
   }, [product]);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await getUoms();
+      setUomList(data || []);
+    })();
+  }, []);
 
   const checkError = () => {
     const tempError = {};
@@ -70,6 +81,7 @@ export default function EditProductPage() {
         name,
         barcode,
         category,
+        uomId: uomId || null,
         ...(prices ? { prices } : {}),
       });
       if (error.length > 0) {
@@ -165,6 +177,23 @@ export default function EditProductPage() {
             {error.category && (
               <p className="mt-2 text-xs text-red-500">{error.category}</p>
             )}
+          </label>
+          <label className="block">
+            <span className="text-sm font-semibold text-gray-700">
+              Satuan (UoM)
+            </span>
+            <select
+              value={uomId}
+              onChange={(e) => setUomId(e.target.value)}
+              className="mt-2 w-full rounded-3xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+            >
+              <option value="">-- pilih satuan --</option>
+              {uomList.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.code} - {u.name}
+                </option>
+              ))}
+            </select>
           </label>
           <div className="flex justify-end">
             <button
