@@ -387,27 +387,29 @@ export default function POSPage() {
 
   return (
     <div className="min-h-screen bg-[#f4f1ee]">
-      <div className="mx-auto max-w-[1600px] px-4 py-6 flex min-h-screen flex-col">
-        <main className="flex-1 flex flex-col space-y-6 pb-24">
-          <div className="rounded-[40px] bg-white shadow-sm border border-orange-100 p-6 min-h-[670px] flex flex-col">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-start gap-3">
-                <div>
-                  <h2 className="text-2xl font-bold text-orange-600">POS Kasir</h2>
-                  <p className="text-sm text-gray-500">
-                    Kelola transaksi dan laporan penjualan
-                  </p>
+      <div className="mx-auto max-w-[1600px] px-3 sm:px-4 py-3 sm:py-6 flex min-h-screen flex-col">
+        <main className="flex-1 flex flex-col space-y-4 sm:space-y-6 pb-24">
+          <div className="rounded-[24px] sm:rounded-[40px] bg-white shadow-sm border border-orange-100 p-4 sm:p-6 flex flex-col">
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <div>
+                    <h2 className="text-xl sm:text-2xl font-bold text-orange-600">POS Kasir</h2>
+                    <p className="text-xs sm:text-sm text-gray-500 hidden sm:block">
+                      Kelola transaksi dan laporan penjualan
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowShortcuts(true)}
+                    title="Shortcut keyboard (F1)"
+                    className="inline-flex items-center gap-1 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-600 hover:bg-orange-100"
+                  >
+                    <Keyboard size={14} /> F1
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowShortcuts(true)}
-                  title="Shortcut keyboard (F1)"
-                  className="inline-flex items-center gap-1 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-600 hover:bg-orange-100"
-                >
-                  <Keyboard size={14} /> F1
-                </button>
               </div>
-              <div className="grid gap-3 sm:grid-cols-[100px_minmax(0,1fr)] xl:grid-cols-[100px_minmax(0,1fr)_360px]">
+              <div className="grid gap-2 grid-cols-[80px_1fr] sm:grid-cols-[100px_minmax(0,1fr)] xl:grid-cols-[100px_minmax(0,1fr)_360px]">
                 <div className="flex items-center gap-2">
                   <label
                     htmlFor="scanQty"
@@ -453,7 +455,7 @@ export default function POSPage() {
                   />
                 </div>
 
-                <div className="relative max-w-sm w-full sm:w-[360px]">
+                <div className="relative max-w-sm w-full xl:w-[360px]">
                   <Search size={16} className="absolute left-3 top-3 text-orange-300" />
                   <input
                     ref={searchRef}
@@ -495,31 +497,31 @@ export default function POSPage() {
             </div>
             {scanError && <p className="mt-3 text-sm text-red-500">{scanError}</p>}
 
-            <div className="mt-6 flex-1 min-h-0 overflow-x-auto">
-              <div className="h-full min-h-0 max-h-[520px] overflow-y-auto rounded-[32px] border border-orange-100">
-                <table className="w-full min-w-[720px]">
+            <div className="mt-4 sm:mt-6 flex-1 min-h-0 overflow-x-auto">
+              <div className="h-full min-h-0 max-h-[400px] sm:max-h-[520px] overflow-y-auto rounded-[20px] sm:rounded-[32px] border border-orange-100">
+                <table className="w-full min-w-[480px] sm:min-w-[720px]">
                   <thead>
-                    <tr className="text-left text-gray-500 text-sm border-b border-orange-100">
-                      <th className="px-5 py-4 font-semibold">Description</th>
-                      <th className="px-5 py-4 font-semibold">Qty</th>
-                      <th className="px-5 py-4 font-semibold">Price</th>
-                      <th className="px-5 py-4 font-semibold text-right">Amount</th>
-                      <th className="px-5 py-4 font-semibold text-right">Action</th>
+                    <tr className="text-left text-gray-500 text-xs sm:text-sm border-b border-orange-100">
+                      <th className="px-3 sm:px-5 py-3 sm:py-4 font-semibold">Produk</th>
+                      <th className="px-3 sm:px-5 py-3 sm:py-4 font-semibold">Qty</th>
+                      <th className="px-3 sm:px-5 py-3 sm:py-4 font-semibold hidden sm:table-cell">Harga</th>
+                      <th className="px-3 sm:px-5 py-3 sm:py-4 font-semibold text-right">Total</th>
+                      <th className="px-3 sm:px-5 py-3 sm:py-4 font-semibold text-right">Aksi</th>
                     </tr>
                   </thead>
                   <tbody>
                     {items.length === 0 ? (
                       <tr>
-                        <td colSpan="5" className="py-16 text-center text-gray-400 text-sm">
+                        <td colSpan="5" className="py-12 sm:py-16 text-center text-gray-400 text-sm">
                           Belum ada item di keranjang
                         </td>
                       </tr>
                     ) : (
                       items.map((item) => (
-                        <tr key={item.key} className="text-sm border-b border-orange-50 hover:bg-orange-50/50">
-                          <td className="px-5 py-4 text-gray-700 font-medium">
+                        <tr key={item.key} className="text-xs sm:text-sm border-b border-orange-50 hover:bg-orange-50/50">
+                          <td className="px-3 sm:px-5 py-3 sm:py-4 text-gray-700 font-medium">
                             {item.name}
-                            <div className="mt-1 flex flex-wrap gap-2 text-xs text-gray-500">
+                            <div className="mt-0.5 flex flex-wrap gap-1 sm:gap-2 text-xs text-gray-500">
                               {item.priceLabel && <span>{item.priceLabel}</span>}
                               {item.uomCode && (
                                 <span className="rounded-full bg-orange-100 px-2 py-0.5 font-semibold text-orange-700">
@@ -528,20 +530,20 @@ export default function POSPage() {
                               )}
                             </div>
                           </td>
-                          <td className="px-5 py-4">
-                            <div className="inline-flex items-center gap-1.5 bg-orange-50 rounded-full px-2 py-1">
+                          <td className="px-3 sm:px-5 py-3 sm:py-4">
+                            <div className="inline-flex items-center gap-1 sm:gap-1.5 bg-orange-50 rounded-full px-1.5 sm:px-2 py-1">
                               <button
                                 onClick={() => updateQty(item.key, item.qty - 1)}
-                                className="w-6 h-6 rounded-full bg-white border border-orange-200 flex items-center justify-center"
+                                className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white border border-orange-200 flex items-center justify-center"
                               >
-                                <Minus size={12} />
+                                <Minus size={10} />
                               </button>
-                              <span className="w-6 text-center text-xs font-semibold">{item.qty}</span>
+                              <span className="w-5 sm:w-6 text-center text-xs font-semibold">{item.qty}</span>
                               <button
                                 onClick={() => updateQty(item.key, item.qty + 1)}
-                                className="w-6 h-6 rounded-full bg-white border border-orange-200 flex items-center justify-center"
+                                className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white border border-orange-200 flex items-center justify-center"
                               >
-                                <Plus size={12} />
+                                <Plus size={10} />
                               </button>
                             </div>
                             {item.uomCode && (
@@ -550,15 +552,15 @@ export default function POSPage() {
                               </div>
                             )}
                           </td>
-                          <td className="px-5 py-4 text-gray-600">{formatRupiah(item.price)}</td>
-                          <td className="px-5 py-4 text-right font-bold text-gray-800">{formatRupiah(item.price * item.qty)}</td>
-                          <td className="px-5 py-4 text-right">
+                          <td className="px-3 sm:px-5 py-3 sm:py-4 text-gray-600 hidden sm:table-cell">{formatRupiah(item.price)}</td>
+                          <td className="px-3 sm:px-5 py-3 sm:py-4 text-right font-bold text-gray-800">{formatRupiah(item.price * item.qty)}</td>
+                          <td className="px-3 sm:px-5 py-3 sm:py-4 text-right">
                             <button
                               onClick={() => requestVoid(item.key)}
                               title="Void item (perlu admin)"
-                              className="inline-flex w-8 h-8 items-center justify-center rounded-full bg-red-50 text-red-500 hover:bg-red-100"
+                              className="inline-flex w-7 h-7 sm:w-8 sm:h-8 items-center justify-center rounded-full bg-red-50 text-red-500 hover:bg-red-100"
                             >
-                              <Trash2 size={14} />
+                              <Trash2 size={13} />
                             </button>
                           </td>
                         </tr>
@@ -642,11 +644,11 @@ export default function POSPage() {
             </div>
           )}
 
-          <footer className="sticky bottom-0 z-10 mt-6 rounded-[40px] bg-white p-6 shadow-sm border border-orange-100">
-            <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-              <div className="rounded-[32px] bg-orange-50 p-4">
-                <p className="text-sm uppercase tracking-[0.2em] text-gray-500">Summary</p>
-                <div className="mt-4 space-y-3 text-sm text-gray-600">
+          <footer className="sticky bottom-0 z-10 mt-4 sm:mt-6 rounded-[24px] sm:rounded-[40px] bg-white p-3 sm:p-6 shadow-sm border border-orange-100">
+            <div className="grid gap-3 sm:gap-6 lg:grid-cols-[1fr_360px]">
+              <div className="rounded-[20px] sm:rounded-[32px] bg-orange-50 p-3 sm:p-4">
+                <p className="text-xs sm:text-sm uppercase tracking-[0.2em] text-gray-500">Summary</p>
+                <div className="mt-2 sm:mt-4 space-y-2 sm:space-y-3 text-xs sm:text-sm text-gray-600">
                   <div className="flex justify-between gap-4">
                     <span>Item Total</span>
                     <span className="font-semibold text-gray-900">{itemTotal}</span>
@@ -658,59 +660,59 @@ export default function POSPage() {
                 </div>
               </div>
 
-              <div className="rounded-[32px] bg-green-500 p-4 text-white flex flex-col justify-between">
-                <div>
-                  <p className="text-sm uppercase tracking-[0.2em]">Total</p>
-                  <p className="mt-4 text-4xl font-bold">{formatRupiah(total)}</p>
+              <div className="rounded-[20px] sm:rounded-[32px] bg-green-500 p-3 sm:p-4 text-white flex flex-col justify-between">
+                <div className="flex items-center justify-between sm:block">
+                  <p className="text-xs sm:text-sm uppercase tracking-[0.2em]">Total</p>
+                  <p className="text-2xl sm:text-4xl sm:mt-4 font-bold">{formatRupiah(total)}</p>
                 </div>
-                <div className="mt-6 grid gap-3">
-                  <div className="grid grid-cols-3 gap-2">
+                <div className="mt-3 sm:mt-6 grid gap-2 sm:gap-3">
+                  <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
                     <button
                       onClick={openVoidPicker}
                       disabled={items.length === 0}
                       title="Void item (pilih item, perlu admin)"
-                      className="inline-flex items-center justify-center gap-1 rounded-full border border-white/30 bg-white/10 px-2 py-2 text-xs font-semibold text-white hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="inline-flex items-center justify-center gap-1 rounded-full border border-white/30 bg-white/10 px-1.5 sm:px-2 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold text-white hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      <Ban size={14} /> Void (F6)
+                      <Ban size={12} /> Void (F6)
                     </button>
                     <button
                       onClick={requestAbort}
                       disabled={items.length === 0}
                       title="Abort transaksi (perlu admin)"
-                      className="inline-flex items-center justify-center gap-1 rounded-full border border-white/30 bg-white/10 px-2 py-2 text-xs font-semibold text-white hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="inline-flex items-center justify-center gap-1 rounded-full border border-white/30 bg-white/10 px-1.5 sm:px-2 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold text-white hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      <XOctagon size={14} /> Abort (F7)
+                      <XOctagon size={12} /> Abort (F7)
                     </button>
                     <button
                       onClick={() => setShowRefund(true)}
                       title="Refund transaksi sebelumnya (perlu admin)"
-                      className="inline-flex items-center justify-center gap-1 rounded-full border border-white/30 bg-white/10 px-2 py-2 text-xs font-semibold text-white hover:bg-white/20"
+                      className="inline-flex items-center justify-center gap-1 rounded-full border border-white/30 bg-white/10 px-1.5 sm:px-2 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold text-white hover:bg-white/20"
                     >
-                      <RotateCcw size={14} /> Refund (F10)
+                      <RotateCcw size={12} /> Refund (F10)
                     </button>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                     <button
                       onClick={handleSuspend}
                       disabled={items.length === 0}
                       title="Tahan transaksi"
-                      className="inline-flex items-center justify-center gap-1 rounded-full border border-white/30 bg-white/10 px-2 py-2 text-xs font-semibold text-white hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="inline-flex items-center justify-center gap-1 rounded-full border border-white/30 bg-white/10 px-1.5 sm:px-2 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold text-white hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      <PauseCircle size={14} /> Suspend (F8)
+                      <PauseCircle size={12} /> Suspend (F8)
                     </button>
                     <button
                       onClick={() => setShowSuspendList(true)}
                       disabled={suspended.length === 0}
                       title="Lihat transaksi yang ditahan"
-                      className="inline-flex items-center justify-center gap-1 rounded-full border border-white/30 bg-white/10 px-2 py-2 text-xs font-semibold text-white hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="inline-flex items-center justify-center gap-1 rounded-full border border-white/30 bg-white/10 px-1.5 sm:px-2 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold text-white hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      <PlayCircle size={14} /> Resume ({suspended.length})
+                      <PlayCircle size={12} /> Resume ({suspended.length})
                     </button>
                   </div>
                   <button
                     onClick={() => setShowCheckout(true)}
                     disabled={items.length === 0}
-                    className="w-full rounded-full bg-white px-4 py-3 text-sm font-semibold text-green-600 hover:bg-white/90 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="w-full rounded-full bg-white px-4 py-2.5 sm:py-3 text-sm font-semibold text-green-600 hover:bg-white/90 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Bayar (F9)
                   </button>

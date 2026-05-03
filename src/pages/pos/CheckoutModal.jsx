@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
 import { formatRupiah } from '../../utils/format'
-import { printReceipt, printReceiptQZ, findQzPrinters, isQzLoaded } from '../../utils/receipt'
+import { printReceipt, printReceiptQZ, getDefaultQzPrinter, isQzLoaded } from '../../utils/receipt'
 import { createTransaction } from '../../services/transactionService'
 import { notification } from '../../utils/toast'
 import { useAuthStore } from '../../store/authStore'
@@ -61,18 +61,14 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
   }, [method, cashNum, total, loading])
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
+    if (typeof window === 'undefined' || !isQzLoaded()) {
       setQzStatus('noqz')
       return
     }
-    if (!isQzLoaded()) {
-      setQzStatus('noqz')
-      return
-    }
-    findQzPrinters()
-      .then((printers) => {
-        if (printers?.length > 0) {
-          setPrinterName(printers[0])
+    getDefaultQzPrinter()
+      .then((printer) => {
+        if (printer) {
+          setPrinterName(printer)
           setQzStatus('ready')
         } else {
           setQzStatus('no-printer')

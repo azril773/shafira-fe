@@ -186,15 +186,15 @@ export function printReceipt(receiptData) {
   document.body.appendChild(iframe)
 
   const printAndRemove = () => {
+    const remove = () => {
+      if (iframe.parentNode) iframe.parentNode.removeChild(iframe)
+    }
     try {
       iframe.contentWindow?.focus()
+      iframe.contentWindow?.addEventListener('afterprint', remove, { once: true })
       iframe.contentWindow?.print()
-    } finally {
-      setTimeout(() => {
-        if (iframe.parentNode) {
-          iframe.parentNode.removeChild(iframe)
-        }
-      }, 500)
+    } catch {
+      setTimeout(remove, 1000)
     }
   }
 
@@ -222,10 +222,29 @@ export async function findQzPrinters() {
   return qz.printers.find()
 }
 
-export async function printReceiptQZ(receiptData, printerName = 'BSC10') {
+export async function getDefaultQzPrinter() {
   const qz = await ensureQzConnected()
+  try {
+    const defaultPrinter = await qz.printers.getDefault()
+    if (defaultPrinter) return defaultPrinter
+  } catch (_) {
+    // fall through to find
+  }
+  const printers = await qz.printers.find()
+  return Array.isArray(printers) && printers.length > 0 ? printers[0] : null
+}
+
+export async function printReceiptQZ(receiptData, printerName) {
+  const qz = await ensureQzConnected()
+
+  let printer = printerName
+  if (!printer) {
+    printer = await getDefaultQzPrinter()
+  }
+  if (!printer) throw new Error('Tidak ada printer yang tersedia.')
+
   const text = formatReceiptText(receiptData)
-  const config = qz.configs.create(printerName)
+  const config = qz.configs.create(printer)
   const data = [
     {
       type: 'raw',
