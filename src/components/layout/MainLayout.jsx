@@ -13,6 +13,7 @@ import {
   Clock,
   Users,
   ShoppingBag,
+  RotateCcw,
   Menu,
   X,
 } from 'lucide-react'
@@ -27,7 +28,8 @@ const cashierNavItems = [
 
 const inventoryNavItems = [
   { to: '/inventory/dashboard', icon: Monitor, label: 'Inventory' },
-  { to: '/inventory/purchase', icon: ShoppingBag, label: 'Purchase' },
+  { to: '/inventory/purchases', icon: ShoppingBag, label: 'Purchase' },
+  { to: '/inventory/purchase-returns', icon: RotateCcw, label: 'Retur Purchase' },
   { to: '/inventory/transactions', icon: ReceiptText, label: 'Transaksi' },
 ]
 

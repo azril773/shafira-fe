@@ -89,3 +89,23 @@ export async function updatePurchaseStatus({ id, status }) {
     return { data: null, error: getErrorMessage(error) };
   }
 }
+
+export async function returnPurchaseItems({
+  id,
+  items,
+  reason,
+  verifierUsername,
+  verifierPassword,
+}) {
+  try {
+    const response = await api.put(`/purchases/${id}/return-items`, {
+      items,
+      ...(reason ? { reason } : {}),
+      ...(verifierUsername ? { verifierUsername } : {}),
+      ...(verifierPassword ? { verifierPassword } : {}),
+    });
+    return { data: response.data, error: "" };
+  } catch (error) {
+    return { data: null, error: getErrorMessage(error) };
+  }
+}

@@ -50,6 +50,12 @@ const REPORTS = [
     description: "Item yang di-refund atau transaksi yang dibatalkan.",
   },
   {
+    id: "purchase-return",
+    label: "Retur Pembelian",
+    icon: RotateCcw,
+    description: "Retur barang ke vendor berdasarkan dokumen purchase yang sudah diapprove.",
+  },
+  {
     id: "vendors",
     label: "Vendor",
     icon: Box,
@@ -85,6 +91,13 @@ function formatDate(value) {
   } catch {
     return value;
   }
+}
+
+function purchaseReturnedQty(purchase) {
+  return (purchase.purchaseDetails || []).reduce(
+    (sum, detail) => sum + (Number(detail.returnedQty) || 0),
+    0,
+  );
 }
 
 function isWithin(date, from, to) {
@@ -138,7 +151,7 @@ export default function ReportsPage() {
           "data",
         );
         setTransactions(list);
-      } else if (activeId === "purchase") {
+      } else if (activeId === "purchase" || activeId === "purchase-return") {
         const list = await fetchAllPages(
           (page) => searchPurchase({ page }),
           "data",
@@ -307,6 +320,67 @@ export default function ReportsPage() {
             { label: "Order Pembelian", value: filtered.length },
             { label: "Total Qty", value: totalQty },
             { label: "Total Nilai", value: formatRupiah(totalValue) },
+          ],
+        };
+      }
+      case "purchase-return": {
+        const filtered = purchases.filter(
+          (purchase) =>
+            ["PARTIAL_RETURNED", "RETURNED"].includes(purchase.status) &&
+            isWithin(purchase.purchaseDate, from, to),
+        );
+
+        const rows = [];
+        let totalReturnedQty = 0;
+        let totalReturnedValue = 0;
+        const vendorSet = new Set();
+
+        filtered.forEach((purchase) => {
+          if (purchase.vendor?.name) vendorSet.add(purchase.vendor.name);
+
+          (purchase.purchaseDetails || []).forEach((detail) => {
+            const returnedQty = Number(detail.returnedQty) || 0;
+            if (returnedQty <= 0) return;
+
+            const purchasePrice = Number(detail.purchasePrice) || 0;
+            const subtotal = purchasePrice * returnedQty;
+            totalReturnedQty += returnedQty;
+            totalReturnedValue += subtotal;
+
+            rows.push({
+              Tanggal: formatDate(purchase.purchaseDate),
+              Vendor: purchase.vendor?.name || "-",
+              Status: purchase.status,
+              Barcode: detail.product?.barcode || "-",
+              Produk: detail.product?.name || "-",
+              "Qty Beli": Number(detail.qty) || 0,
+              "Qty Retur": returnedQty,
+              "Qty Sisa": Number(detail.remainingReturnQty) || 0,
+              "Harga Beli": purchasePrice,
+              "Nilai Retur": subtotal,
+            });
+          });
+        });
+
+        return {
+          headers: [
+            "Tanggal",
+            "Vendor",
+            "Status",
+            "Barcode",
+            "Produk",
+            "Qty Beli",
+            "Qty Retur",
+            "Qty Sisa",
+            "Harga Beli",
+            "Nilai Retur",
+          ],
+          rows,
+          summary: [
+            { label: "Dokumen Diretur", value: filtered.length },
+            { label: "Vendor Terkait", value: vendorSet.size },
+            { label: "Total Qty Retur", value: totalReturnedQty },
+            { label: "Total Nilai Retur", value: formatRupiah(totalReturnedValue) },
           ],
         };
       }

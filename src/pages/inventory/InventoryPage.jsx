@@ -29,6 +29,7 @@ const topNavItems = [
   { id: "vendors", label: "Vendor", href: "/inventory/vendors" },
   { id: "uoms", label: "UoM", href: "/inventory/uoms" },
   { id: "purchases", label: "Pembelian", href: "/inventory/purchases" },
+  { id: "purchase-returns", label: "Retur Pembelian", href: "/inventory/purchase-returns" },
   { id: "transactions", label: "Transaksi", href: "/inventory/transactions" },
   { id: "users", label: "User", href: "/inventory/users" },
   { id: "audit-logs", label: "Audit Log", href: "/inventory/audit-logs" },
