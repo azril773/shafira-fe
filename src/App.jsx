@@ -22,8 +22,9 @@ import ReportsPage from "./pages/inventory/reports/reports";
 import PurchaseReturnsPage from "./pages/inventory/purchase-returns/returns";
 
 function PrivateRoute() {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
   console.log(isAuthenticated, "MASU")
+  console.log(user, "USER")
   // return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
 }
 
