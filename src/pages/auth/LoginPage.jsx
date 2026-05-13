@@ -23,7 +23,7 @@ export default function LoginPage() {
       setLoading(false)
     }else{
       console.log(data, "DATA")
-      login(data.user, data.access_token)
+      login(data.user, data.token)
       switch(data.user.role) {
         case CASHIER:
           navigate('/pos')
