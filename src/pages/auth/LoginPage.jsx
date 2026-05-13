@@ -22,7 +22,7 @@ export default function LoginPage() {
       setError(error)
       setLoading(false)
     }else{
-      login(data.user, data.token)
+      login(data.user, data.access_token)
       switch(data.user.role) {
         case CASHIER:
           navigate('/pos')
