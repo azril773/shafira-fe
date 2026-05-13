@@ -25,7 +25,7 @@ function PrivateRoute() {
   const { isAuthenticated, user } = useAuthStore();
   console.log(isAuthenticated, "MASU")
   console.log(user, "USER")
-  // return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
+  return isAuthenticated ? <Outlet /> : <Navigate to="/inventory" replace />;
 }
 
 function HomeRedirect() {
