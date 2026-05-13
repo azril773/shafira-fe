@@ -22,6 +22,7 @@ export default function LoginPage() {
       setError(error)
       setLoading(false)
     }else{
+      console.log(data, "DATA")
       login(data.user, data.access_token)
       switch(data.user.role) {
         case CASHIER:

@@ -23,7 +23,7 @@ import PurchaseReturnsPage from "./pages/inventory/purchase-returns/returns";
 
 function PrivateRoute() {
   const { isAuthenticated, user } = useAuthStore();
-  return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
+  // return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
 }
 
 function HomeRedirect() {
