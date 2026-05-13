@@ -23,12 +23,13 @@ import PurchaseReturnsPage from "./pages/inventory/purchase-returns/returns";
 
 function PrivateRoute() {
   const { isAuthenticated } = useAuthStore();
-  return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
+  console.log(isAuthenticated)
+  // return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
 }
 
 function HomeRedirect() {
   const { user } = useAuthStore();
-  console.log(user)
+  console.log(user) 
   // if (!user) return <Navigate to="/login" replace />;
   return user.role === CASHIER ? (
     <Navigate to="/pos" replace />
