@@ -29,7 +29,7 @@ function PrivateRoute() {
 function HomeRedirect() {
   const { user } = useAuthStore();
   console.log(user)
-  if (!user) return <Navigate to="/login" replace />;
+  // if (!user) return <Navigate to="/login" replace />;
   return user.role === CASHIER ? (
     <Navigate to="/pos" replace />
   ) : (
