@@ -93,9 +93,6 @@ export default function EditProductPage() {
       navigate("/inventory/products");
   };
 
-  useEffect(() => {
-    console.log(prices);
-  }, [prices]);
 
   if (!product) {
     return (

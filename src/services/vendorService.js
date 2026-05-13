@@ -33,11 +33,9 @@ export async function updateVendor({id, name, phone }) {
 
 export async function searchVendor({ page, name, phone }) {
   try {
-    console.log(page);
     const params = new URLSearchParams({ page });
     if (name) params.name = name;
     if (phone) params.phone = phone;
-    console.log(params.toString());
     const response = await api.get(`/vendors/search?${params.toString()}`, {});
     return {
       data: response.data.vendors,

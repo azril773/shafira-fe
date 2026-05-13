@@ -8,7 +8,6 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
   const token = useAuthStore.getState().token
-  console.log(token, "TOKEN")
   if (token) config.headers.Authorization = `Bearer ${token}`
   config.withCredentials = true
   return config
@@ -18,8 +17,8 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
-      // useAuthStore.getState().logout()
-      // window.location.href = '/login'
+      useAuthStore.getState().logout()
+      window.location.href = '/login'
     }
     return Promise.reject(err)
   }
