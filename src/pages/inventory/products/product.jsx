@@ -69,20 +69,23 @@ export default function ProductPage() {
 
   const loadData = async () => {
     const { data, totalPages, error } = await searchProduct({
-      page,
+      page: currentPage,
       code,
       barcode: barcodeParams,
     });
     if (error.length > 0) {
       toast.error(error);
     } else {
-      // setTotalPages(totalPages);
+      setTotalPages(totalPages);
       setProducts(data);
     }
   };
 
   useEffect(() => {
     loadData();
+  }, [currentPage]);
+
+  useEffect(() => {
     (async () => {
       const { data } = await getUoms();
       setUomList(data || []);
@@ -163,7 +166,9 @@ export default function ProductPage() {
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-gray-600">{item.uom?.code || "-"}</td>
+                    <td className="px-4 py-3 text-gray-600">
+                      {item.uom?.code || "-"}
+                    </td>
                     <td className="px-4 py-3">{item.stock}</td>
                   </tr>
                 ))}
@@ -236,13 +241,6 @@ export default function ProductPage() {
                   <div className="grid gap-2 sm:grid-cols-4">
                     <button
                       type="button"
-                      onClick={() => handleInventoryAction("Restock")}
-                      className="rounded-full bg-orange-500 px-3 py-2 text-sm font-semibold text-white hover:bg-orange-600"
-                    >
-                      Restock
-                    </button>
-                    <button
-                      type="button"
                       onClick={() =>
                         navigate(
                           `/inventory/products/edit/${selectedItem.id}`,
@@ -252,12 +250,6 @@ export default function ProductPage() {
                       className="rounded-full cursor-pointer border border-orange-200 bg-white px-3 py-2 text-sm font-semibold text-orange-700 hover:bg-orange-50"
                     >
                       Edit
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded-full border border-orange-200 bg-white px-3 py-2 text-sm font-semibold text-orange-700 hover:bg-orange-50"
-                    >
-                      Return
                     </button>
                   </div>
                   {selectedItemAction && (
