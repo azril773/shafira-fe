@@ -156,7 +156,7 @@ export function formatReceiptHtml({
       <head>
         <title>Struk ${receiptId}</title>
         <style>
-          body { font-family: monospace; margin: 0; padding: 0; }
+          body { font-family: sans-serif; margin: 0; padding: 0; }
           .receipt { width: 80mm; padding: 8px; font-size: 14px; }
           .center { text-align: center; }
           .bold { font-weight: bold; }
