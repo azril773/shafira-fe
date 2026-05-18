@@ -157,24 +157,24 @@ export function formatReceiptHtml({
         <title>Struk ${receiptId}</title>
         <style>
           body { font-family: monospace; margin: 0; padding: 0; }
-          .receipt { width: 80mm; padding: 8px; font-size: 12px; }
+          .receipt { width: 80mm; padding: 8px; font-size: 14px; }
           .center { text-align: center; }
           .bold { font-weight: bold; }
-          .small { font-size: 11px; }
+          .small { font-size: 13px; }
           .right { text-align: right; }
           .divider {
             border: 0;
             border-top: 1px dashed #000;
             margin: 6px 0;
           }
-          .header-name { font-size: 15px; font-weight: bold; }
+          .header-name { font-size: 17px; font-weight: bold; }
           table { width: 100%; border-collapse: collapse; }
           td { padding: 1px 0; vertical-align: top; }
           .item-name { padding-top: 4px; font-weight: 600; }
           .qty { padding-left: 6px; color: #222; }
           .totals td { padding: 2px 0; }
           .totals .label { color: #333; }
-          .totals .grand { font-weight: bold; font-size: 13px; }
+          .totals .grand { font-weight: bold; font-size: 15px; }
           .footer { font-size: 11px; line-height: 1.4; }
           @media print {
             body { margin: 0; }
@@ -224,12 +224,6 @@ export function formatReceiptHtml({
             Simpan struk sebagai bukti
           </div>
         </div>
-        <br />
-        <br />
-        <br />
-        <br />
-        <br />
-        <br />
       </body>
     </html>`
 }
