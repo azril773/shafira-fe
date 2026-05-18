@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { listAuditLogs } from "../../../services/auditLogService";
 import PaginationTableNoLink from "../../../components/globals/pagination";
+import { formatNumberId } from "../../../utils/format";
 
 const ACTIONS = [
   { value: "", label: "Semua" },
@@ -104,7 +105,7 @@ function refundItemsList(log) {
           <span className="font-medium">{it.name}</span>
           {it.barcode ? <span className="text-gray-400"> [{it.barcode}]</span> : null}
           {" — "}
-          <span>{it.qty} qty</span>
+          <span>{formatNumberId(it.qty)} qty</span>
           {it.price != null ? (
             <span className="text-gray-500"> @ {formatRupiah(it.price)}</span>
           ) : null}

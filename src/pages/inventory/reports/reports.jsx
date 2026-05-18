@@ -13,7 +13,7 @@ import {
   FileText,
 } from "lucide-react";
 import { exportToExcel, exportToPdf } from "../../../utils/export";
-import { formatRupiah } from "../../../utils/format";
+import { formatRupiah, formatNumberId } from "../../../utils/format";
 import { getProducts } from "../../../services/productService";
 import {
   searchPurchase,
@@ -627,6 +627,8 @@ export default function ReportsPage() {
                       /Total|Harga|Subtotal|Nilai/i.test(h) &&
                       !/qty/i.test(h)
                         ? formatRupiah(row[h])
+                        : typeof row[h] === "number" && /qty|stok/i.test(h)
+                        ? formatNumberId(row[h])
                         : String(row[h] ?? "-")}
                     </td>
                   ))}

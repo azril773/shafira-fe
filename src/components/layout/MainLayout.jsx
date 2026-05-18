@@ -4,7 +4,6 @@ import {
   ShoppingCart,
   Package,
   ReceiptText,
-  LayoutDashboard,
   LogOut,
   Clock3,
   CalendarDays,
@@ -23,7 +22,6 @@ import { CASHIER } from '../../constants/user'
 
 const cashierNavItems = [
   { to: '/pos/kasir', icon: ShoppingCart, label: 'Kasir' },
-  { to: '/pos/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
 ]
 
 const inventoryNavItems = [

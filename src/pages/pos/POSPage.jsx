@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { Search, Plus, Minus, Trash2, Keyboard, Ban, XOctagon, RotateCcw, PauseCircle, PlayCircle, X } from 'lucide-react'
+import { Search, Plus, Minus, Trash2, Keyboard, Ban, XOctagon, RotateCcw, PauseCircle, PlayCircle, X, Printer } from 'lucide-react'
 import { useCartStore } from '../../store/cartStore'
-import { formatRupiah } from '../../utils/format'
+import { formatNumberId, formatRupiah, parseNumberInput } from '../../utils/format'
 import CheckoutModal from './CheckoutModal'
 import RefundModal from './RefundModal'
+import ReprintModal from './ReprintModal'
 import { searchProduct } from '../../services/productService'
 import { notification } from '../../utils/toast'
 import AdminVerifyModal from '../../components/globals/AdminVerifyModal'
@@ -20,6 +21,7 @@ const SHORTCUTS = [
   { keys: 'F6', desc: 'Void item (perlu admin)' },
   { keys: 'F7', desc: 'Abort transaksi (perlu admin)' },
   { keys: 'F10', desc: 'Refund transaksi (perlu admin)' },
+  { keys: 'F11', desc: 'Reprint struk transaksi selesai' },
   { keys: 'Ctrl + ↑/↓', desc: 'Tambah / kurangi qty item terakhir' },
   { keys: 'Esc', desc: 'Tutup popup / bersihkan pencarian' },
 ]
@@ -39,9 +41,12 @@ export default function POSPage() {
   // Modal pemilihan item untuk di-void
   const [voidPicker, setVoidPicker] = useState(false)
   const [showRefund, setShowRefund] = useState(false)
+  const [showReprint, setShowReprint] = useState(false)
   const [showSuspendList, setShowSuspendList] = useState(false)
   const [showSuspendPrompt, setShowSuspendPrompt] = useState(false)
   const [suspendLabel, setSuspendLabel] = useState('')
+  // Draft text untuk input qty per row (biar separator dibentuk on blur, bukan tiap keystroke)
+  const [cartQtyDrafts, setCartQtyDrafts] = useState({})
 
   const barcodeRef = useRef(null)
   const searchRef = useRef(null)
@@ -67,7 +72,7 @@ export default function POSPage() {
   }, [search])
 
   const getQty = () => {
-    const q = Number(scanQty)
+    const q = parseNumberInput(scanQty)
     return q > 0 ? q : 1
   }
 
@@ -81,6 +86,7 @@ export default function POSPage() {
         priceLabel: priceOption.name,
         priceName: priceOption.name,
         price: Number(priceOption.price),
+        stock: Number(product.stock) || 0,
         uomId: product.uomId || product.uom?.id || null,
         uomCode: product.uom?.code || null,
         uomName: product.uom?.name || null,
@@ -98,6 +104,12 @@ export default function POSPage() {
     setProductSelection(null)
     if (!product.prices || product.prices.length === 0) {
       notification('Gagal', 'Produk tidak memiliki harga.', 'error')
+      return
+    }
+    const available = Number(product.stock) || 0
+    const needed = qty
+    if (available < needed) {
+      setScanError(`Stok tidak cukup. Stok tersedia: ${formatNumberId(Number(product.stock) || 0)}`)
       return
     }
     if (product.prices.length > 1) {
@@ -134,6 +146,36 @@ export default function POSPage() {
     if (!priceSelection) return
     addCartItem(priceSelection.product, priceSelection.qty, option)
     setPriceSelection(null)
+  }
+
+  const handleCartQtyInput = (item, value) => {
+    const parsedQty = parseNumberInput(value)
+    if (parsedQty <= 0) {
+      removeItem(item.key)
+      return
+    }
+    const available = Number(item.stock) || 0
+    const requested = parsedQty
+    if (available < requested) {
+      notification('Stok kurang', `Stok ${item.name} tidak mencukupi.`, 'error')
+      return
+    }
+    updateQty(item.key, parsedQty)
+  }
+
+  const setItemQtySafely = (item, nextQty) => {
+    if (!item) return
+    if (nextQty <= 0) {
+      removeItem(item.key)
+      return
+    }
+    const available = Number(item.stock) || 0
+    const requested = nextQty
+    if (available < requested) {
+      notification('Stok kurang', `Stok ${item.name} tidak mencukupi.`, 'error')
+      return
+    }
+    updateQty(item.key, nextQty)
   }
 
   // Minta verifikasi admin sebelum void / abort
@@ -245,6 +287,10 @@ export default function POSPage() {
           setShowRefund(false)
           return
         }
+        if (showReprint) {
+          setShowReprint(false)
+          return
+        }
         if (showShortcuts) {
           setShowShortcuts(false)
           return
@@ -274,7 +320,7 @@ export default function POSPage() {
       }
 
       // Jika sedang ada modal/popup, abaikan shortcut lain
-      if (showCheckout || productSelection || priceSelection || showShortcuts || adminAction || voidPicker || showRefund || showSuspendList || showSuspendPrompt) return
+      if (showCheckout || productSelection || priceSelection || showShortcuts || adminAction || voidPicker || showRefund || showReprint || showSuspendList || showSuspendPrompt) return
 
       // F1: bantuan shortcut
       if (e.key === 'F1') {
@@ -314,9 +360,9 @@ export default function POSPage() {
       // "+" / "-": tambah / kurangi nilai Qty (di luar input lain)
       if (!inOtherInput && (e.key === '+' || e.key === '-')) {
         e.preventDefault()
-        const current = Number(scanQty) || 1
-        const next = e.key === '+' ? current + 1 : Math.max(1, current - 1)
-        setScanQty(String(next))
+        const current = getQty()
+        const next = e.key === '+' ? current + 1 : Math.max(0.001, current - 1)
+        setScanQty(formatNumberId(next, { maximumFractionDigits: 3 }))
         return
       }
 
@@ -341,6 +387,12 @@ export default function POSPage() {
         return
       }
 
+      if (e.key === 'F11') {
+        e.preventDefault()
+        setShowReprint(true)
+        return
+      }
+
       // F9: checkout / bayar
       if (e.key === 'F9') {
         e.preventDefault()
@@ -361,7 +413,7 @@ export default function POSPage() {
         e.preventDefault()
         const last = items[items.length - 1]
         const nextQty = e.key === 'ArrowUp' ? last.qty + 1 : last.qty - 1
-        updateQty(last.key, nextQty)
+        setItemQtySafely(last, nextQty)
       }
     }
     window.addEventListener('keydown', handler)
@@ -380,6 +432,7 @@ export default function POSPage() {
     adminAction,
     voidPicker,
     showRefund,
+    showReprint,
     clearCart,
     removeItem,
     updateQty,
@@ -418,22 +471,25 @@ export default function POSPage() {
                   <input
                     id="scanQty"
                     ref={qtyRef}
-                    type="number"
+                    type="text"
                     value={scanQty}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault()
-                        const value = Number(scanQty)
-                        if (!value || value < 1) setScanQty('1')
+                        const value = getQty()
+                        if (!value || value <= 0) setScanQty('1')
+                        else setScanQty(formatNumberId(value, { maximumFractionDigits: 3 }))
                         barcodeRef.current?.focus()
                         barcodeRef.current?.select()
                       }
                     }}
                     onChange={(e) => setScanQty(e.target.value)}
                     onBlur={(e) => {
-                      const value = Number(e.target.value)
-                      if (value < 1 || e.target.value === '') {
+                      const value = parseNumberInput(e.target.value)
+                      if (!value || value <= 0 || e.target.value === '') {
                         setScanQty('1')
+                      } else {
+                        setScanQty(formatNumberId(value, { maximumFractionDigits: 3 }))
                       }
                     }}
                     className="w-full rounded-full border border-orange-200 bg-white px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-300"
@@ -476,7 +532,7 @@ export default function POSPage() {
                             <div className="font-semibold">{product.name}</div>
                             <div className="flex items-center gap-2 text-xs text-gray-500">
                               <span>{product.category}</span>
-                              <span>Stok: {product.stock}</span>
+                              <span>Stok: {formatNumberId(Number(product.stock) || 0)}</span>
                               {product.prices?.length > 1 && (
                                 <span className="rounded-full bg-orange-100 px-2 py-0.5 font-semibold text-orange-700">
                                   Pilih Harga
@@ -531,14 +587,36 @@ export default function POSPage() {
                           <td className="px-5 py-4">
                             <div className="inline-flex items-center gap-1.5 bg-orange-50 rounded-full px-2 py-1">
                               <button
-                                onClick={() => updateQty(item.key, item.qty - 1)}
+                                onClick={() => setItemQtySafely(item, item.qty - 1)}
                                 className="w-6 h-6 rounded-full bg-white border border-orange-200 flex items-center justify-center"
                               >
                                 <Minus size={12} />
                               </button>
-                              <span className="w-6 text-center text-xs font-semibold">{item.qty}</span>
+                              <input
+                                type="text"
+                                value={
+                                  cartQtyDrafts[item.key] !== undefined
+                                    ? cartQtyDrafts[item.key]
+                                    : formatNumberId(item.qty, { maximumFractionDigits: 3 })
+                                }
+                                onChange={(e) =>
+                                  setCartQtyDrafts((prev) => ({ ...prev, [item.key]: e.target.value }))
+                                }
+                                onBlur={(e) => {
+                                  handleCartQtyInput(item, e.target.value)
+                                  setCartQtyDrafts((prev) => {
+                                    const next = { ...prev }
+                                    delete next[item.key]
+                                    return next
+                                  })
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') e.currentTarget.blur()
+                                }}
+                                className="w-16 rounded-md border border-orange-200 bg-white px-2 py-1 text-center text-xs font-semibold"
+                              />
                               <button
-                                onClick={() => updateQty(item.key, item.qty + 1)}
+                                onClick={() => setItemQtySafely(item, item.qty + 1)}
                                 className="w-6 h-6 rounded-full bg-white border border-orange-200 flex items-center justify-center"
                               >
                                 <Plus size={12} />
@@ -598,7 +676,7 @@ export default function POSPage() {
                     >
                       <div className="font-semibold">{p.name}</div>
                       <div className="mt-1 text-xs text-gray-500">
-                        {p.category} · Stok: {p.stock} · {p.code}
+                        {p.category} · Stok: {formatNumberId(Number(p.stock) || 0)} · {p.code}
                       </div>
                     </button>
                   ))}
@@ -688,6 +766,13 @@ export default function POSPage() {
                     >
                       <RotateCcw size={14} /> Refund (F10)
                     </button>
+                    <button
+                      onClick={() => setShowReprint(true)}
+                      title="Cetak ulang struk"
+                      className="inline-flex items-center justify-center gap-1 rounded-full border border-white/30 bg-white/10 px-2 py-2 text-xs font-semibold text-white hover:bg-white/20"
+                    >
+                      <Printer size={14} /> Reprint (F11)
+                    </button>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <button
@@ -774,6 +859,8 @@ export default function POSPage() {
           />
         )}
 
+        {showReprint && <ReprintModal onClose={() => setShowReprint(false)} />}
+
         {adminAction && (
           <AdminVerifyModal
             title={adminAction.type === 'abort' ? 'Abort Transaksi' : 'Void Item'}
@@ -819,7 +906,7 @@ export default function POSPage() {
                       <div className="font-semibold truncate">{it.name}</div>
                       <div className="text-xs text-gray-500">
                         {it.priceLabel ? `${it.priceLabel} · ` : ''}
-                        Qty: {it.qty}{it.uomCode ? ` ${it.uomCode}` : ''} · {formatRupiah(it.price)}
+                        Qty: {formatNumberId(it.qty, { maximumFractionDigits: 3 })}{it.uomCode ? ` ${it.uomCode}` : ''} · {formatRupiah(it.price)}
                       </div>
                     </div>
                     <div className="text-sm font-bold text-gray-800 whitespace-nowrap">

@@ -1,4 +1,4 @@
-import { formatRupiah } from './format'
+import { formatNumberId, formatRupiah } from './format'
 
 export function formatDateTime(date = new Date()) {
   return date.toLocaleString('id-ID', {
@@ -10,7 +10,8 @@ export function formatDateTime(date = new Date()) {
   })
 }
 
-const LINE_WIDTH = 10
+// 32-character width is standard for 58mm thermal printers.
+const LINE_WIDTH = 32
 
 function padRight(text, length) {
   const str = String(text)
@@ -31,10 +32,31 @@ function centerText(text, width = LINE_WIDTH) {
   return ' '.repeat(left) + str + ' '.repeat(right)
 }
 
+// Garis pemisah patah-patah kecil ala struk thermal: "- - - - - - ..."
+function dashedLine(width = LINE_WIDTH) {
+  return '- '.repeat(Math.floor(width / 2)).trimEnd()
+}
+
+// Render satu baris dengan label di kiri & nilai di kanan, dipisah spasi.
+function lineLR(left, right, width = LINE_WIDTH) {
+  const l = String(left)
+  const r = String(right)
+  if (l.length + r.length + 1 >= width) {
+    return l + '\n' + padLeft(r, width)
+  }
+  return l + ' '.repeat(width - l.length - r.length) + r
+}
+
+// Format qty + uom yang konsisten (thousand-separator + kode satuan).
+function formatQtyUom(qty, uomCode) {
+  const q = formatNumberId(Number(qty) || 0, { maximumFractionDigits: 3 })
+  return uomCode ? `${q} ${uomCode}` : q
+}
+
 export function formatReceiptText({
   storeName = 'ShafiraMart',
-  storeAddress = 'Jl. Contoh No. 123, Kota',
-  storePhone = '0812-3456-7890',
+  storeAddress = '',
+  storePhone = '',
   receiptId = '',
   date = formatDateTime(),
   cashier = 'Kasir',
@@ -46,37 +68,52 @@ export function formatReceiptText({
   change = 0,
 }) {
   const lines = []
+
+  // ===== HEADER =====
   lines.push(centerText(storeName))
-  lines.push(centerText(storeAddress))
-  lines.push(centerText(`Telp: ${storePhone}`))
-  lines.push('-'.repeat(LINE_WIDTH))
-  lines.push(`ID: ${receiptId}`)
-  lines.push(`Tgl: ${date}`)
-  lines.push(`Kasir: ${cashier}`)
-  lines.push('-'.repeat(LINE_WIDTH))
+  if (storeAddress) lines.push(centerText(storeAddress))
+  if (storePhone) lines.push(centerText(`Telp: ${storePhone}`))
+  lines.push(dashedLine())
 
+  // ===== SUBHEADER =====
+  lines.push(lineLR('No', receiptId))
+  lines.push(lineLR('Tgl', date))
+  lines.push(lineLR('Kasir', cashier))
+  lines.push(dashedLine())
+
+  // ===== CONTENT (ITEM) =====
   items.forEach((item) => {
-    const name = item.priceLabel ? `${item.name} (${item.priceLabel})` : item.name
-    const itemLine = `${name}`.slice(0, LINE_WIDTH)
-    const qtyPrice = `${item.qty} x ${formatRupiah(item.price)}`
-    lines.push(itemLine)
-    if (qtyPrice.length <= LINE_WIDTH) {
-      lines.push(padRight('', LINE_WIDTH - qtyPrice.length) + qtyPrice)
+    const name = String(item.name)
+    // Baris 1: nama produk (boleh wrap manual jika terlalu panjang)
+    if (name.length <= LINE_WIDTH) {
+      lines.push(name)
     } else {
-      lines.push(qtyPrice)
+      // Wrap sederhana per LINE_WIDTH karakter
+      for (let i = 0; i < name.length; i += LINE_WIDTH) {
+        lines.push(name.slice(i, i + LINE_WIDTH))
+      }
     }
+    // Baris 2: qty + uom x harga ............. subtotal
+    const qtyUom = formatQtyUom(item.qty, item.uomCode)
+    const leftPart = `  ${qtyUom} x ${formatRupiah(item.price)}`
+    const lineSubtotal = formatRupiah((Number(item.qty) || 0) * (Number(item.price) || 0))
+    lines.push(lineLR(leftPart, lineSubtotal))
   })
+  lines.push(dashedLine())
 
-  lines.push('-'.repeat(LINE_WIDTH))
-  lines.push(padRight('Subtotal', LINE_WIDTH - formatRupiah(subtotal).length) + formatRupiah(subtotal))
-  lines.push(padRight('Total', LINE_WIDTH - formatRupiah(total).length) + formatRupiah(total))
-  lines.push(padRight('Metode', LINE_WIDTH - paymentMethod.length) + paymentMethod)
+  // ===== TOTAL =====
+  lines.push(lineLR('Subtotal', formatRupiah(subtotal)))
+  lines.push(lineLR('Total', formatRupiah(total)))
+  lines.push(lineLR('Metode', paymentMethod))
   if (paymentMethod === 'Tunai') {
-    lines.push(padRight('Bayar', LINE_WIDTH - formatRupiah(cash).length) + formatRupiah(cash))
-    lines.push(padRight('Kembali', LINE_WIDTH - formatRupiah(change).length) + formatRupiah(change))
+    lines.push(lineLR('Bayar', formatRupiah(cash)))
+    lines.push(lineLR('Kembali', formatRupiah(change)))
   }
-  lines.push('-'.repeat(LINE_WIDTH))
+  lines.push(dashedLine())
+
+  // ===== FOOTER =====
   lines.push(centerText('Terima kasih sudah berbelanja!'))
+  lines.push(centerText('Simpan struk sebagai bukti'))
   lines.push('')
   lines.push('')
 
@@ -85,8 +122,8 @@ export function formatReceiptText({
 
 export function formatReceiptHtml({
   storeName = 'ShafiraMart',
-  storeAddress = 'Jl. Contoh No. 123, Kota',
-  storePhone = '0812-3456-7890',
+  storeAddress = '',
+  storePhone = '',
   receiptId,
   date,
   cashier = 'Kasir',
@@ -99,12 +136,17 @@ export function formatReceiptHtml({
 }) {
   const rows = items
     .map((item) => {
-      const description = item.priceLabel ? `${item.name} (${item.priceLabel})` : item.name
+      const description = String(item.name).replace(/</g, '&lt;')
+      const qtyUom = formatQtyUom(item.qty, item.uomCode)
+      const price = formatRupiah(item.price)
+      const lineSub = formatRupiah((Number(item.qty) || 0) * (Number(item.price) || 0))
       return `
         <tr>
-          <td>${description.replace(/</g, '&lt;')}</td>
-          <td class="right">${item.qty}x</td>
-          <td class="right">${formatRupiah(item.price)}</td>
+          <td colspan="2" class="item-name">${description}</td>
+        </tr>
+        <tr>
+          <td class="qty">${qtyUom} x ${price}</td>
+          <td class="right">${lineSub}</td>
         </tr>`
     })
     .join('')
@@ -114,58 +156,72 @@ export function formatReceiptHtml({
       <head>
         <title>Struk ${receiptId}</title>
         <style>
-          body { font-family: monospace; margin: 0; padding: 0; }
-          .receipt { width: 65mm; padding: 8px; font-size: 12px; }
+          body { font-family: 'Courier New', monospace; margin: 0; padding: 0; }
+          .receipt { width: 58mm; padding: 6px 8px; font-size: 12px; line-height: 1.35; }
           .center { text-align: center; }
           .bold { font-weight: bold; }
           .small { font-size: 11px; }
-          .right { text-align: right; text-wrap: wrap; }
-          .divider { border-top: 1px dashed #333; margin: 8px 0; }
-          table { width: 100%; border-collapse: collapse; font-size: 12px; }
-          td { padding: 2px 0; vertical-align: top; }
-          .total-row td { font-weight: bold; }
-          .footer { margin-top: 12px; font-size: 11px; }
+          .right { text-align: right; }
+          .divider {
+            border: 0;
+            border-top: 1px dashed #000;
+            margin: 6px 0;
+          }
+          .header-name { font-size: 15px; font-weight: bold; }
+          table { width: 100%; border-collapse: collapse; }
+          td { padding: 1px 0; vertical-align: top; }
+          .item-name { padding-top: 4px; font-weight: 600; }
+          .qty { padding-left: 6px; color: #222; }
+          .totals td { padding: 2px 0; }
+          .totals .label { color: #333; }
+          .totals .grand { font-weight: bold; font-size: 13px; }
+          .footer { font-size: 11px; line-height: 1.4; }
           @media print {
             body { margin: 0; }
             .receipt { box-shadow: none; }
-            @page { size: 65mm auto; margin: 0; }
+            @page { size: 58mm auto; margin: 0; }
           }
         </style>
       </head>
       <body>
         <div class="receipt">
-          <div class="center bold" style="font-size:16px;">${storeName}</div>
-          <div class="center small">${storeAddress}</div>
-          <div class="center small">Telp: ${storePhone}</div>
-          <div class="divider"></div>
-          <div class="small">
-            <div>ID Transaksi: ${receiptId}</div>
-            <div>Tanggal: ${date}</div>
-            <div>Kasir: ${cashier}</div>
-          </div>
-          <div class="divider"></div>
+          <!-- HEADER -->
+          <div class="center header-name">${storeName}</div>
+          ${storeAddress ? `<div class="center small">${storeAddress}</div>` : ''}
+          ${storePhone ? `<div class="center small">Telp: ${storePhone}</div>` : ''}
+
+          <hr class="divider" />
+
+          <!-- SUBHEADER -->
+          <table class="small">
+            <tr><td>No</td><td class="right">${receiptId}</td></tr>
+            <tr><td>Tgl</td><td class="right">${date}</td></tr>
+            <tr><td>Kasir</td><td class="right">${cashier}</td></tr>
+          </table>
+
+          <hr class="divider" />
+
+          <!-- CONTENT -->
           <table>
             ${rows}
+
           </table>
-          <div class="divider"></div>
-          <table>
-            <tr class="total-row">
-              <td>Subtotal</td>
-              <td class="right">${formatRupiah(subtotal)}</td>
-            </tr>
-            <tr class="total-row">
-              <td>Total</td>
-              <td class="right">${formatRupiah(total)}</td>
-            </tr>
-            <tr>
-              <td>Metode</td>
-              <td class="right">${paymentMethod}</td>
-            </tr>
-            ${paymentMethod === 'Tunai' ? `<tr><td>Bayar</td><td class="right">${formatRupiah(cash)}</td></tr><tr><td>Kembali</td><td class="right">${formatRupiah(change)}</td></tr>` : ''}
+
+          <hr class="divider" />
+          <!-- TOTAL -->
+          <table class="totals">
+            <tr><td class="label">Subtotal</td><td class="right">${formatRupiah(subtotal)}</td></tr>
+            <tr class="grand"><td class="label">Total</td><td class="right">${formatRupiah(total)}</td></tr>
+            <tr><td class="label">Metode</td><td class="right">${paymentMethod}</td></tr>
+            ${paymentMethod === 'Tunai' ? `<tr><td class="label">Bayar</td><td class="right">${formatRupiah(cash)}</td></tr><tr><td class="label">Kembali</td><td class="right">${formatRupiah(change)}</td></tr>` : ''}
           </table>
-          <div class="divider"></div>
+
+          <hr class="divider" />
+
+          <!-- FOOTER -->
           <div class="center footer">
-            Terima kasih sudah berbelanja!
+            Terima kasih sudah berbelanja!<br/>
+            Simpan struk sebagai bukti
           </div>
         </div>
       </body>

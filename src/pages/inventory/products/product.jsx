@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { formatRupiah } from "../../../utils/format";
+import { formatRupiah, formatNumberId } from "../../../utils/format";
 import { createProduct, searchProduct } from "../../../services/productService";
 import { getUoms } from "../../../services/uomService";
 import { toast } from "react-toastify";
@@ -9,10 +9,12 @@ import PaginationTableNoLink from "../../../components/globals/pagination";
 
 export default function ProductPage() {
   const navigate = useNavigate();
-  const searchParams = useSearchParams();
-  const page = searchParams[0].get("page") || 1;
-  const code = searchParams[0].get("code") || undefined;
-  const barcodeParams = searchParams[0].get("barcode") || undefined;
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const pageParam = parseInt(searchParams.get("page") || "1", 10);
+  const nameParam = searchParams.get("name") || undefined;
+  const barcodeParam = searchParams.get("barcode") || undefined;
+
   const [selectedItem, setSelectedItem] = useState(null);
   const [products, setProducts] = useState([]);
   const [selectedItemAction, setSelectedItemAction] = useState("");
@@ -25,8 +27,12 @@ export default function ProductPage() {
   const [uomList, setUomList] = useState([]);
   const [uomId, setUomId] = useState("");
 
+  // Filter state
+  const [filterName, setFilterName] = useState(nameParam || "");
+  const [filterBarcode, setFilterBarcode] = useState(barcodeParam || "");
+
   const [refresh, setRefresh] = useState("");
-  const [currentPage, setCurrentPage] = useState(parseInt(page));
+  const [currentPage, setCurrentPage] = useState(pageParam);
   const [totalPages, setTotalPages] = useState(1);
   const [error, setError] = useState({});
   const [infoMessage, setInfoMessage] = useState(
@@ -68,21 +74,49 @@ export default function ProductPage() {
   };
 
   const loadData = async () => {
-    const { data, totalPages, error } = await searchProduct({
-      page,
-      code,
-      barcode: barcodeParams,
+    const { data, totalPages: tp, error } = await searchProduct({
+      page: pageParam,
+      name: nameParam,
+      barcode: barcodeParam,
     });
-    if (error.length > 0) {
+    if (error) {
       toast.error(error);
     } else {
-      // setTotalPages(totalPages);
+      setTotalPages(tp || 1);
       setProducts(data);
     }
   };
 
+  const applyFilter = () => {
+    const params = new URLSearchParams();
+    params.set("page", "1");
+    if (filterName.trim()) params.set("name", filterName.trim());
+    if (filterBarcode.trim()) params.set("barcode", filterBarcode.trim());
+    setSearchParams(params);
+    setCurrentPage(1);
+  };
+
+  const resetFilter = () => {
+    setFilterName("");
+    setFilterBarcode("");
+    setSearchParams(new URLSearchParams({ page: "1" }));
+    setCurrentPage(1);
+  };
+
+  const goToPage = (newPage) => {
+    const params = new URLSearchParams(searchParams);
+    params.set("page", String(newPage));
+    setSearchParams(params);
+    setCurrentPage(newPage);
+  };
+
   useEffect(() => {
     loadData();
+    setSelectedItem(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageParam, nameParam, barcodeParam, refresh]);
+
+  useEffect(() => {
     (async () => {
       const { data } = await getUoms();
       setUomList(data || []);
@@ -131,6 +165,53 @@ export default function ProductPage() {
             Tambah Item
           </button>
         </div>
+
+        <div className="mt-6 rounded-4xl border border-orange-100 bg-orange-50 p-5">
+          <p className="text-sm uppercase tracking-[0.2em] text-orange-500">
+            Cari Produk
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <label className="block text-sm text-gray-600">
+              Nama Produk
+              <input
+                type="text"
+                value={filterName}
+                onChange={(e) => setFilterName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && applyFilter()}
+                placeholder="Cari nama produk..."
+                className="mt-2 w-full rounded-xl border border-orange-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+              />
+            </label>
+            <label className="block text-sm text-gray-600">
+              Barcode
+              <input
+                type="text"
+                value={filterBarcode}
+                onChange={(e) => setFilterBarcode(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && applyFilter()}
+                placeholder="Cari barcode..."
+                className="mt-2 w-full rounded-xl border border-orange-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+              />
+            </label>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={applyFilter}
+              className="rounded-full bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600"
+            >
+              Cari
+            </button>
+            <button
+              type="button"
+              onClick={resetFilter}
+              className="rounded-full border border-orange-200 bg-white px-4 py-2 text-sm font-semibold text-orange-700 hover:bg-orange-50"
+            >
+              Reset
+            </button>
+          </div>
+        </div>
+
         <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_360px]">
           <div>
             <table className="w-full min-w-130 text-left text-sm text-gray-600 overflow-x-auto rounded-4xl border border-orange-100 bg-white">
@@ -164,25 +245,19 @@ export default function ProductPage() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-gray-600">{item.uom?.code || "-"}</td>
-                    <td className="px-4 py-3">{item.stock}</td>
+                    <td className="px-4 py-3">{formatNumberId(item.stock)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
             <PaginationTableNoLink
               currentPage={currentPage}
-              setCurrentPage={setCurrentPage}
+              setCurrentPage={goToPage}
               totalPages={totalPages}
             />
           </div>
 
           <div className="space-y-4">
-            <div className="rounded-[32px] border border-orange-100 bg-orange-50 p-5">
-              <p className="text-sm uppercase tracking-[0.2em] text-orange-500">
-                Demo Inventory
-              </p>
-              <p className="mt-3 text-sm text-gray-600">{infoMessage}</p>
-            </div>
 
             <div className="rounded-[32px] border border-orange-100 bg-white p-5 shadow-sm">
               <p className="text-sm uppercase tracking-[0.2em] text-orange-500">
@@ -204,7 +279,7 @@ export default function ProductPage() {
                         Stok
                       </p>
                       <p className="mt-2 font-semibold text-gray-900">
-                        {selectedItem.stock}
+                        {formatNumberId(selectedItem.stock)}
                       </p>
                     </div>
                     <div className="rounded-3xl bg-orange-50 p-3">
@@ -236,13 +311,6 @@ export default function ProductPage() {
                   <div className="grid gap-2 sm:grid-cols-4">
                     <button
                       type="button"
-                      onClick={() => handleInventoryAction("Restock")}
-                      className="rounded-full bg-orange-500 px-3 py-2 text-sm font-semibold text-white hover:bg-orange-600"
-                    >
-                      Restock
-                    </button>
-                    <button
-                      type="button"
                       onClick={() =>
                         navigate(
                           `/inventory/products/edit/${selectedItem.id}`,
@@ -252,12 +320,6 @@ export default function ProductPage() {
                       className="rounded-full cursor-pointer border border-orange-200 bg-white px-3 py-2 text-sm font-semibold text-orange-700 hover:bg-orange-50"
                     >
                       Edit
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded-full border border-orange-200 bg-white px-3 py-2 text-sm font-semibold text-orange-700 hover:bg-orange-50"
-                    >
-                      Return
                     </button>
                   </div>
                   {selectedItemAction && (

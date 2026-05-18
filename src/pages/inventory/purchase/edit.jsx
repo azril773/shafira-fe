@@ -7,13 +7,21 @@ import {
   updatePurchase,
 } from "../../../services/purchaseService";
 import { getProducts } from "../../../services/productService";
-import { formatRupiah } from "../../../utils/format";
+import { formatNumberId, formatRupiah, parseNumberInput } from "../../../utils/format";
+import ProductSearchSelect from "../../../components/globals/ProductSearchSelect";
 
 function toDatetimeLocalInput(value) {
   if (!value) return "";
   const d = new Date(value);
   const pad = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function normalizeNumericText(value, maxFractionDigits = 3, allowZero = false) {
+  const num = parseNumberInput(value);
+  if (allowZero && num === 0) return "0";
+  if (num <= 0) return "";
+  return formatNumberId(num, { maximumFractionDigits: maxFractionDigits });
 }
 
 export default function EditPurchasePage() {
@@ -27,7 +35,7 @@ export default function EditPurchasePage() {
 
   const [vendorId, setVendorId] = useState("");
   const [purchaseDate, setPurchaseDate] = useState("");
-  const [details, setDetails] = useState([{ productId: "", qty: 1, purchasePrice: 0 }]);
+  const [details, setDetails] = useState([{ productId: "", qty: "1", purchasePrice: "0" }]);
   const [error, setError] = useState({});
   const [loading, setLoading] = useState(false);
 
@@ -66,8 +74,8 @@ export default function EditPurchasePage() {
       setDetails(
         purchase.purchaseDetails.map((d) => ({
           productId: d.productId || d.product?.id || "",
-          qty: d.qty || 1,
-          purchasePrice: Number(d.purchasePrice) || 0,
+          qty: formatNumberId(d.qty || 1, { maximumFractionDigits: 3 }),
+          purchasePrice: formatNumberId(Number(d.purchasePrice) || 0, { maximumFractionDigits: 0 }),
         })),
       );
     }
@@ -85,9 +93,9 @@ export default function EditPurchasePage() {
       else if (seen.has(d.productId))
         tempError[`details.${idx}.productId`] = "Produk tidak boleh duplikat.";
       else seen.add(d.productId);
-      if (!d.qty || d.qty <= 0)
+      if (parseNumberInput(d.qty) <= 0)
         tempError[`details.${idx}.qty`] = "Qty harus angka positif.";
-      if (d.purchasePrice === "" || d.purchasePrice === undefined || Number(d.purchasePrice) < 0)
+      if (d.purchasePrice === "" || d.purchasePrice === undefined || parseNumberInput(d.purchasePrice) < 0)
         tempError[`details.${idx}.purchasePrice`] = "Harga beli tidak boleh negatif.";
     });
     setError(tempError);
@@ -117,8 +125,8 @@ export default function EditPurchasePage() {
       purchaseDate: new Date(purchaseDate).toISOString(),
       details: details.map((d) => ({
         productId: d.productId,
-        qty: Number(d.qty),
-        purchasePrice: Number(d.purchasePrice) || 0,
+        qty: parseNumberInput(d.qty),
+        purchasePrice: parseNumberInput(d.purchasePrice) || 0,
       })),
     });
     setLoading(false);
@@ -232,7 +240,7 @@ export default function EditPurchasePage() {
               <button
                 type="button"
                 onClick={() =>
-                  setDetails((prev) => [...prev, { productId: "", qty: 1, purchasePrice: 0 }])
+                  setDetails((prev) => [...prev, { productId: "", qty: "1", purchasePrice: "0" }])
                 }
                 className="rounded-full border border-orange-300 px-3 py-1 text-xs font-semibold text-orange-600 hover:bg-orange-50"
               >
@@ -264,20 +272,12 @@ export default function EditPurchasePage() {
                       </button>
                     )}
                   </div>
-                  <select
+                  <ProductSearchSelect
+                    products={products}
                     value={d.productId}
-                    onChange={(e) =>
-                      updateDetail(idx, "productId", e.target.value)
-                    }
-                    className={`mt-2 w-full rounded-xl border ${error[`details.${idx}.productId`] ? "border-red-500" : "border-orange-200"} bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300`}
-                  >
-                    <option value="">Pilih Produk</option>
-                    {products.map((product) => (
-                      <option key={product.id} value={product.id}>
-                        {product.name}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(id) => updateDetail(idx, "productId", id)}
+                    error={error[`details.${idx}.productId`]}
+                  />
                   {error[`details.${idx}.productId`] && (
                     <p className="mt-1 text-xs text-red-500">
                       {error[`details.${idx}.productId`]}
@@ -286,11 +286,17 @@ export default function EditPurchasePage() {
                   <div className="mt-2 flex items-center gap-2">
                     <span className="text-xs text-gray-500">Qty</span>
                     <input
-                      type="number"
-                      min="1"
+                      type="text"
                       value={d.qty}
+                      onFocus={(e) => {
+                        const raw = parseNumberInput(e.target.value)
+                        if (raw > 0) updateDetail(idx, "qty", String(raw))
+                      }}
                       onChange={(e) =>
-                        updateDetail(idx, "qty", Number(e.target.value))
+                        updateDetail(idx, "qty", e.target.value)
+                      }
+                      onBlur={(e) =>
+                        updateDetail(idx, "qty", normalizeNumericText(e.target.value, 3) || "0")
                       }
                       className={`w-full rounded-xl border ${error[`details.${idx}.qty`] ? "border-red-500" : "border-orange-200"} bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300`}
                     />
@@ -303,11 +309,17 @@ export default function EditPurchasePage() {
                   <div className="mt-2 flex items-center gap-2">
                     <span className="text-xs text-gray-500">Harga Beli</span>
                     <input
-                      type="number"
-                      min="0"
-                      value={d.purchasePrice ?? 0}
+                      type="text"
+                      value={d.purchasePrice ?? ""}
+                      onFocus={(e) => {
+                        const raw = parseNumberInput(e.target.value)
+                        if (raw >= 0) updateDetail(idx, "purchasePrice", String(raw))
+                      }}
                       onChange={(e) =>
-                        updateDetail(idx, "purchasePrice", Number(e.target.value))
+                        updateDetail(idx, "purchasePrice", e.target.value)
+                      }
+                      onBlur={(e) =>
+                        updateDetail(idx, "purchasePrice", normalizeNumericText(e.target.value, 0, true))
                       }
                       className={`w-full rounded-xl border ${error[`details.${idx}.purchasePrice`] ? "border-red-500" : "border-orange-200"} bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300`}
                     />
@@ -321,7 +333,7 @@ export default function EditPurchasePage() {
                     <p className="mt-2 text-xs text-gray-500">
                       Estimasi:{" "}
                       {formatRupiah(
-                        (Number(d.qty) || 0) * (Number(d.purchasePrice) || 0),
+                        (parseNumberInput(d.qty) || 0) * (parseNumberInput(d.purchasePrice) || 0),
                       )}
                     </p>
                   )}

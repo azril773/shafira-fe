@@ -8,6 +8,7 @@ import {
   searchPurchase,
 } from "../../../services/purchaseService";
 import PaginationTableNoLink from "../../../components/globals/pagination";
+import { formatNumberId, parseNumberInput } from "../../../utils/format";
 
 const STATUS_OPTIONS = [
   { value: "", label: "Posted, Parsial, Returned" },
@@ -54,11 +55,17 @@ function purchaseProductSummary(purchase) {
 
   const preview = details
     .slice(0, 3)
-    .map((detail) => `${detail.product?.name || "Produk"} (${detail.qty})`)
+    .map((detail) => `${detail.product?.name || "Produk"} (${formatNumberId(detail.qty)})`)
     .join(", ");
 
   if (details.length <= 3) return preview;
   return `${preview} +${details.length - 3} produk lain`;
+}
+
+function normalizeNumericText(value, maxFractionDigits = 3) {
+  const num = parseNumberInput(value);
+  if (num <= 0) return "0";
+  return formatNumberId(num, { maximumFractionDigits: maxFractionDigits });
 }
 
 export default function PurchaseReturnsPage() {
@@ -178,7 +185,7 @@ export default function PurchaseReturnsPage() {
     const items = (selectedItem.purchaseDetails || [])
       .map((d) => ({
         purchaseDetailId: d.id,
-        qty: Number(returnQtyByDetailId[d.id] || 0),
+        qty: parseNumberInput(returnQtyByDetailId[d.id] || 0),
       }))
       .filter((item) => item.qty > 0);
 
@@ -201,7 +208,7 @@ export default function PurchaseReturnsPage() {
     const items = (selectedItem.purchaseDetails || [])
       .map((d) => ({
         purchaseDetailId: d.id,
-        qty: Number(returnQtyByDetailId[d.id] || 0),
+        qty: parseNumberInput(returnQtyByDetailId[d.id] || 0),
       }))
       .filter((item) => item.qty > 0);
 
@@ -302,7 +309,7 @@ export default function PurchaseReturnsPage() {
           <p className="text-xs uppercase tracking-[0.2em] text-blue-500">
             Total Qty Diretur
           </p>
-          <p className="mt-3 text-3xl font-semibold text-gray-900">{returnedQty}</p>
+          <p className="mt-3 text-3xl font-semibold text-gray-900">{formatNumberId(returnedQty)}</p>
         </div>
       </div>
 
@@ -389,7 +396,7 @@ export default function PurchaseReturnsPage() {
                       {vendorGroup.vendorName}
                     </h4>
                     <p className="mt-1 text-sm text-gray-500">
-                      {vendorGroup.purchases.length} dokumen purchase dengan total {vendorGroup.totalQty} qty.
+                      {vendorGroup.purchases.length} dokumen purchase dengan total {formatNumberId(vendorGroup.totalQty)} qty.
                     </p>
                   </div>
                   <div className="grid gap-2 sm:grid-cols-2">
@@ -398,7 +405,7 @@ export default function PurchaseReturnsPage() {
                         Qty Diretur
                       </p>
                       <p className="mt-1 font-semibold text-gray-900">
-                        {vendorGroup.returnedQty}
+                        {formatNumberId(vendorGroup.returnedQty)}
                       </p>
                     </div>
                     <div className="rounded-2xl bg-white px-4 py-3 text-sm shadow-sm">
@@ -443,14 +450,14 @@ export default function PurchaseReturnsPage() {
                           {purchaseProductSummary(item)}
                         </p>
                         <p className="mt-1 text-xs text-gray-400">
-                          Qty diretur {returnedPurchaseQty(item)} dari {purchaseTotalQty(item)}
+                          Qty diretur {formatNumberId(returnedPurchaseQty(item))} dari {formatNumberId(purchaseTotalQty(item))}
                         </p>
                       </div>
 
                       <div className="flex items-center justify-between gap-3 lg:min-w-[180px] lg:justify-end">
                         <div className="text-right text-sm text-gray-500">
                           <p>Produk: {(item.purchaseDetails || []).length}</p>
-                          <p>Qty sisa: {Math.max(purchaseTotalQty(item) - returnedPurchaseQty(item), 0)}</p>
+                          <p>Qty sisa: {formatNumberId(Math.max(purchaseTotalQty(item) - returnedPurchaseQty(item), 0))}</p>
                         </div>
                         <span className="rounded-full border border-orange-200 bg-white px-3 py-1.5 text-xs font-semibold text-orange-700">
                           {item.status === "RETURNED" ? "Lihat Detail" : "Buat Retur"}
@@ -499,25 +506,23 @@ export default function PurchaseReturnsPage() {
                     >
                       <p className="font-semibold text-gray-900">{d.product?.name || "-"}</p>
                       <p className="text-xs text-gray-500">
-                        Qty Beli: {d.qty} · Sudah Retur: {Number(d.returnedQty) || 0} · Sisa Retur: {Number(d.remainingReturnQty) || 0}
+                        Qty Beli: {formatNumberId(d.qty)} · Sudah Retur: {formatNumberId(Number(d.returnedQty) || 0)} · Sisa Retur: {formatNumberId(Number(d.remainingReturnQty) || 0)}
                       </p>
                       {(selectedItem.status === "POSTED" || selectedItem.status === "PARTIAL_RETURNED") && (
                         <div className="mt-2 flex items-center gap-2">
                           <label className="text-xs text-gray-600">Qty Retur</label>
                           <input
-                            type="number"
-                            min="0"
-                            max={Number(d.remainingReturnQty) || 0}
-                            value={returnQtyByDetailId[d.id] ?? 0}
+                            type="text"
+                            value={returnQtyByDetailId[d.id] ?? "0"}
                             onChange={(e) => {
                               const max = Number(d.remainingReturnQty) || 0;
                               const next = Math.max(
                                 0,
-                                Math.min(max, Number(e.target.value) || 0),
+                                Math.min(max, parseNumberInput(e.target.value) || 0),
                               );
                               setReturnQtyByDetailId((prev) => ({
                                 ...prev,
-                                [d.id]: next,
+                                [d.id]: next === 0 ? "0" : normalizeNumericText(next),
                               }));
                             }}
                             className="w-24 rounded-xl border border-orange-200 bg-white px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
@@ -531,15 +536,15 @@ export default function PurchaseReturnsPage() {
               <div className="grid gap-2 sm:grid-cols-2">
                 <div className="rounded-3xl bg-orange-50 p-3">
                   <p className="text-xs uppercase tracking-[0.2em] text-orange-500">Total Qty</p>
-                  <p className="mt-2 font-semibold text-gray-900">{purchaseTotalQty(selectedItem)}</p>
+                  <p className="mt-2 font-semibold text-gray-900">{formatNumberId(purchaseTotalQty(selectedItem))}</p>
                 </div>
                 <div className="rounded-3xl bg-orange-50 p-3">
                   <p className="text-xs uppercase tracking-[0.2em] text-orange-500">Qty Diretur</p>
                   <p className="mt-2 font-semibold text-gray-900">
-                    {(selectedItem.purchaseDetails || []).reduce(
+                    {formatNumberId((selectedItem.purchaseDetails || []).reduce(
                       (sum, d) => sum + (Number(d.returnedQty) || 0),
                       0,
-                    )}
+                    ))}
                   </p>
                 </div>
               </div>

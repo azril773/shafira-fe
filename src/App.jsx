@@ -3,7 +3,6 @@ import MainLayout from "./components/layout/MainLayout";
 import POSPage from "./pages/pos/POSPage";
 import ProductsPage from "./pages/products/ProductsPage";
 import TransactionsPage from "./pages/transactions/TransactionsPage";
-import DashboardPage from "./pages/dashboard/DashboardPage";
 import InventoryPage from "./pages/inventory/InventoryPage";
 import LoginPage from "./pages/auth/LoginPage";
 import { useAuthStore } from "./store/authStore";
@@ -52,7 +51,7 @@ function PosRoutes() {
         <Route path="kasir" element={<POSPage />} />
         <Route path="products" element={<ProductsPage />} />
         <Route path="transactions" element={<TransactionsPage />} />
-        <Route path="dashboard" element={<DashboardPage />} />
+        <Route path="dashboard" element={<Navigate to="/pos/kasir" replace />} />
       </Route>
     </Routes>
   );

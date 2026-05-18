@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Search, X, Calendar, Barcode, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react'
 import { searchTransactions } from '../../../services/transactionService'
-import { formatRupiah, formatDate } from '../../../utils/format'
+import { formatRupiah, formatDate, formatNumberId } from '../../../utils/format'
 import { notification } from '../../../utils/toast'
 
 const STATUS_OPTIONS = [
@@ -182,7 +182,7 @@ export default function InventoryTransactionsPage() {
                     </td>
                     <td className="px-4 py-3 text-gray-600">{formatDate(trx.createdAt)}</td>
                     <td className="px-4 py-3 text-gray-600">{trx.cashier?.username || '-'}</td>
-                    <td className="px-4 py-3 text-right text-gray-700">{trx.totalQty}</td>
+                    <td className="px-4 py-3 text-right text-gray-700">{formatNumberId(trx.totalQty)}</td>
                     <td className="px-4 py-3 text-right font-semibold text-gray-800">{formatRupiah(trx.totalPrice)}</td>
                     <td className="px-4 py-3 text-gray-600">{trx.paymentMethod}</td>
                     <td className="px-4 py-3">
@@ -286,7 +286,7 @@ export default function InventoryTransactionsPage() {
                         )}
                       </td>
                       <td className={`py-2 text-gray-600 ${d.isRefund ? 'line-through text-gray-400' : ''}`}>{d.historicalBarcode}</td>
-                      <td className={`py-2 text-right ${d.isRefund ? 'line-through text-gray-400' : ''}`}>{d.qty}</td>
+                      <td className={`py-2 text-right ${d.isRefund ? 'line-through text-gray-400' : ''}`}>{formatNumberId(d.qty)}{d.historicalUomCode ? ` ${d.historicalUomCode}` : ''}</td>
                       <td className={`py-2 text-right ${d.isRefund ? 'line-through text-gray-400' : ''}`}>{formatRupiah(d.historicalPrice)}</td>
                       <td className={`py-2 text-right font-semibold ${d.isRefund ? 'line-through text-gray-400' : ''}`}>{formatRupiah(Number(d.historicalPrice) * d.qty)}</td>
                     </tr>
@@ -304,7 +304,7 @@ export default function InventoryTransactionsPage() {
               <div className="text-gray-500">Metode Pembayaran</div>
               <div className="text-right text-gray-700">{selected.paymentMethod}</div>
               <div className="text-gray-500">Total Qty</div>
-              <div className="text-right text-gray-700">{selected.totalQty}</div>
+              <div className="text-right text-gray-700">{formatNumberId(selected.totalQty)}</div>
               <div className="text-gray-500">Total</div>
               <div className="text-right font-bold text-gray-900">{formatRupiah(selected.totalPrice)}</div>
               {selected.paymentMethod === 'Tunai' && (

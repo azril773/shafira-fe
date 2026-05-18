@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
-import { formatRupiah } from '../../utils/format'
+import { formatNumberId, formatRupiah, parseNumberInput } from '../../utils/format'
 import { printReceipt, printReceiptQZ, findQzPrinters, isQzLoaded } from '../../utils/receipt'
 import { createTransaction } from '../../services/transactionService'
 import { notification } from '../../utils/toast'
 import { useAuthStore } from '../../store/authStore'
+import { STORE_NAME, STORE_ADDRESS, STORE_PHONE } from '../../constants/store'
 
 const PAYMENT_METHODS = ['Tunai', 'QRIS', 'Kartu Debit']
 
@@ -17,7 +18,7 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
   const user = useAuthStore((s) => s.user)
   const cashRef = useRef(null)
 
-  const cashNum = Number(cash.replace(/\D/g, ''))
+  const cashNum = parseNumberInput(cash)
   const change = cashNum - total
 
   // Autofocus input uang tunai saat metode Tunai dipilih
@@ -94,7 +95,7 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
         transactionDetails: items.map((it) => ({
           productId: it.id,
           priceName: it.priceName || it.priceLabel || 'Default',
-          qty: it.qty,
+          qty: Number(it.qty),
           ...(it.uomId ? { uomId: it.uomId } : {}),
         })),
       }
@@ -105,6 +106,9 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
       }
 
       const receiptData = {
+        storeName: STORE_NAME,
+        storeAddress: STORE_ADDRESS,
+        storePhone: STORE_PHONE,
         receiptId: trx.transactionNo,
         date: new Date(trx.createdAt || Date.now()).toLocaleString('id-ID'),
         cashier: user?.name || user?.username || 'Kasir',
@@ -191,7 +195,10 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
                 ref={cashRef}
                 type="text"
                 value={cash}
-                onChange={(e) => setCash(e.target.value)}
+                onChange={(e) => {
+                  const next = parseNumberInput(e.target.value)
+                  setCash(next > 0 ? formatNumberId(next, { maximumFractionDigits: 0 }) : '')
+                }}
                 placeholder="Masukkan jumlah uang"
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Search, X, Ban, RotateCcw } from 'lucide-react'
-import { formatRupiah, formatDate } from '../../utils/format'
+import { formatRupiah, formatDate, formatNumberId } from '../../utils/format'
 import {
   searchTransactions,
   voidTransaction,
@@ -214,7 +214,7 @@ export default function TransactionsPage() {
                       {formatDate(trx.createdAt)}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-800">
-                      {trx.totalQty} item
+                      {formatNumberId(trx.totalQty)} item
                     </td>
                     <td className="px-6 py-4 text-sm font-semibold text-gray-800">
                       {formatRupiah(Number(trx.totalPrice))}
@@ -344,7 +344,7 @@ export default function TransactionsPage() {
                               </span>
                             </p>
                             <p className="text-xs text-gray-500">
-                              {d.qty} x {formatRupiah(Number(d.historicalPrice))}
+                              {formatNumberId(d.qty)}{d.historicalUomCode ? ` ${d.historicalUomCode}` : ''} x {formatRupiah(Number(d.historicalPrice))}
                             </p>
                             {d.isRefund && (
                               <p className="text-xs text-amber-700 mt-1">

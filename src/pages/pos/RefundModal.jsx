@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Search, X, Barcode, RotateCcw, ArrowLeft } from 'lucide-react'
 import { searchTransactions, refundTransaction } from '../../services/transactionService'
-import { formatRupiah, formatDate } from '../../utils/format'
+import { formatRupiah, formatDate, formatNumberId, parseNumberInput } from '../../utils/format'
 import { notification } from '../../utils/toast'
 import AdminVerifyModal from '../../components/globals/AdminVerifyModal'
 
@@ -92,8 +92,8 @@ export default function RefundModal({ onClose, onSuccess }) {
   }
 
   const setQtyFor = (id, value, max) => {
-    let next = parseInt(value, 10)
-    if (Number.isNaN(next) || next < 1) next = 1
+    let next = parseNumberInput(value)
+    if (Number.isNaN(next) || next <= 0) next = 0.001
     if (next > max) next = max
     setQtyMap((prev) => ({ ...prev, [id]: next }))
   }
@@ -218,7 +218,7 @@ export default function RefundModal({ onClose, onSuccess }) {
                           <div className="min-w-0">
                             <div className="font-semibold text-gray-800">{trx.transactionNo}</div>
                             <div className="text-xs text-gray-500">
-                              {formatDate(trx.createdAt)} · {trx.totalQty} item · Kasir: {trx.cashier?.username || '-'}
+                              {formatDate(trx.createdAt)} · {formatNumberId(trx.totalQty, { maximumFractionDigits: 3 })} item · Kasir: {trx.cashier?.username || '-'}
                             </div>
                           </div>
                           <div className="text-right">
@@ -276,14 +276,12 @@ export default function RefundModal({ onClose, onSuccess }) {
                               <Barcode size={12} /> {d.historicalBarcode}
                             </span>
                           </td>
-                          <td className="py-2 text-right">{d.qty}</td>
+                          <td className="py-2 text-right">{formatNumberId(d.qty, { maximumFractionDigits: 3 })}</td>
                           <td className="py-2 text-right">
                             <input
-                              type="number"
-                              min={1}
-                              max={d.qty}
+                              type="text"
                               disabled={!checked}
-                              value={refundQty}
+                              value={formatNumberId(refundQty, { maximumFractionDigits: 3 })}
                               onChange={(e) => setQtyFor(d.id, e.target.value, d.qty)}
                               className="w-16 px-2 py-1 border border-gray-200 rounded text-right text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:bg-gray-50 disabled:text-gray-400"
                             />
@@ -312,7 +310,7 @@ export default function RefundModal({ onClose, onSuccess }) {
                 <div className="text-sm space-y-0.5">
                   <div>
                     <span className="text-gray-500">Total Qty: </span>
-                    <span className="font-bold text-gray-800">{refundTotalQty}</span>
+                    <span className="font-bold text-gray-800">{formatNumberId(refundTotalQty, { maximumFractionDigits: 3 })}</span>
                   </div>
                   <div>
                     <span className="text-gray-500">Total Refund: </span>

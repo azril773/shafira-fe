@@ -8,8 +8,9 @@ import {
   updatePurchaseStatus,
 } from "../../../services/purchaseService";
 import { getProducts } from "../../../services/productService";
-import { formatRupiah } from "../../../utils/format";
+import { formatNumberId, formatRupiah, parseNumberInput } from "../../../utils/format";
 import PaginationTableNoLink from "../../../components/globals/pagination";
+import ProductSearchSelect from "../../../components/globals/ProductSearchSelect";
 
 const STATUS_OPTIONS = [
   { value: "", label: "Semua Status" },
@@ -55,6 +56,13 @@ function purchaseTotalValue(purchase) {
   );
 }
 
+function normalizeNumericText(value, maxFractionDigits = 3, allowZero = false) {
+  const num = parseNumberInput(value);
+  if (allowZero && num === 0) return "0";
+  if (num <= 0) return "";
+  return formatNumberId(num, { maximumFractionDigits: maxFractionDigits });
+}
+
 export default function PurchasePage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -82,7 +90,7 @@ export default function PurchasePage() {
   // Create form state
   const [vendorId, setVendorId] = useState("");
   const [purchaseDate, setPurchaseDate] = useState("");
-  const [details, setDetails] = useState([{ productId: "", qty: 1, purchasePrice: 0 }]);
+  const [details, setDetails] = useState([{ productId: "", qty: "1", purchasePrice: "0" }]);
   const [error, setError] = useState({});
 
   const productMap = useMemo(() => {
@@ -138,9 +146,9 @@ export default function PurchasePage() {
       else if (seen.has(d.productId))
         tempError[`details.${idx}.productId`] = "Produk tidak boleh duplikat.";
       else seen.add(d.productId);
-      if (!d.qty || d.qty <= 0)
+      if (parseNumberInput(d.qty) <= 0)
         tempError[`details.${idx}.qty`] = "Qty harus angka positif.";
-      if (d.purchasePrice === "" || d.purchasePrice === undefined || Number(d.purchasePrice) < 0)
+      if (d.purchasePrice === "" || d.purchasePrice === undefined || parseNumberInput(d.purchasePrice) < 0)
         tempError[`details.${idx}.purchasePrice`] = "Harga beli tidak boleh negatif.";
     });
     setError(tempError);
@@ -153,8 +161,8 @@ export default function PurchasePage() {
       purchaseDate,
       details: details.map((d) => ({
         productId: d.productId,
-        qty: Number(d.qty),
-        purchasePrice: Number(d.purchasePrice) || 0,
+        qty: parseNumberInput(d.qty),
+        purchasePrice: parseNumberInput(d.purchasePrice) || 0,
       })),
     });
     if (error) {
@@ -164,7 +172,7 @@ export default function PurchasePage() {
     toast.success("Pembelian berhasil dibuat!");
     setVendorId("");
     setPurchaseDate("");
-    setDetails([{ productId: "", qty: 1, purchasePrice: 0 }]);
+    setDetails([{ productId: "", qty: "1", purchasePrice: "0" }]);
     setRefresh(new Date().toISOString());
   };
 
@@ -264,7 +272,7 @@ export default function PurchasePage() {
             <p className="text-xs uppercase tracking-[0.2em] text-orange-500">
               Total Qty (Diterima)
             </p>
-            <p className="mt-3 text-3xl font-semibold text-gray-900">{totalQty}</p>
+            <p className="mt-3 text-3xl font-semibold text-gray-900">{formatNumberId(totalQty)}</p>
             <p className="mt-2 text-sm text-gray-600">
               Akumulasi kuantitas dari pembelian berstatus POSTED.
             </p>
@@ -394,7 +402,7 @@ export default function PurchasePage() {
                       <td className="px-4 py-3">
                         {item.purchaseDetails?.length || 0}
                       </td>
-                      <td className="px-4 py-3">{purchaseTotalQty(item)}</td>
+                      <td className="px-4 py-3">{formatNumberId(purchaseTotalQty(item))}</td>
                       <td className="px-4 py-3">
                         <span
                           className={`rounded-full px-3 py-1 text-xs font-semibold ${STATUS_BADGE[item.status] || "bg-gray-100 text-gray-700"}`}
@@ -456,7 +464,7 @@ export default function PurchasePage() {
                             {d.product?.name || "-"}
                           </p>
                           <p className="text-xs text-gray-500">
-                            Qty: {d.qty} · Harga Beli: {formatRupiah(Number(d.purchasePrice) || 0)} ·{" "}
+                            Qty: {formatNumberId(d.qty)} · Harga Beli: {formatRupiah(Number(d.purchasePrice) || 0)} ·{" "}
                             {formatRupiah(
                               (d.qty || 0) * (Number(d.purchasePrice) || 0),
                             )}
@@ -471,7 +479,7 @@ export default function PurchasePage() {
                         Total Qty
                       </p>
                       <p className="mt-2 font-semibold text-gray-900">
-                        {purchaseTotalQty(selectedItem)}
+                        {formatNumberId(purchaseTotalQty(selectedItem))}
                       </p>
                     </div>
                     <div className="rounded-3xl bg-orange-50 p-3">
@@ -596,7 +604,7 @@ export default function PurchasePage() {
                     <button
                       type="button"
                       onClick={() =>
-                        setDetails((prev) => [...prev, { productId: "", qty: 1, purchasePrice: 0 }])
+                        setDetails((prev) => [...prev, { productId: "", qty: "1", purchasePrice: "0" }])
                       }
                       className="rounded-full border border-orange-300 px-3 py-1 text-xs font-semibold text-orange-600 hover:bg-orange-50"
                     >
@@ -620,9 +628,7 @@ export default function PurchasePage() {
                             <button
                               type="button"
                               onClick={() =>
-                                setDetails((prev) =>
-                                  prev.filter((_, i) => i !== idx),
-                                )
+                                setDetails((prev) => prev.filter((_, i) => i !== idx))
                               }
                               className="text-xs font-semibold text-red-500 hover:text-red-700"
                             >
@@ -630,20 +636,12 @@ export default function PurchasePage() {
                             </button>
                           )}
                         </div>
-                        <select
+                        <ProductSearchSelect
+                          products={products}
                           value={d.productId}
-                          onChange={(e) =>
-                            updateDetail(idx, "productId", e.target.value)
-                          }
-                          className={`mt-2 w-full rounded-xl border ${error[`details.${idx}.productId`] ? "border-red-500" : "border-orange-200"} bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300`}
-                        >
-                          <option value="">Pilih Produk</option>
-                          {products.map((product) => (
-                            <option key={product.id} value={product.id}>
-                              {product.name}
-                            </option>
-                          ))}
-                        </select>
+                          onChange={(id) => updateDetail(idx, "productId", id)}
+                          error={error[`details.${idx}.productId`]}
+                        />
                         {error[`details.${idx}.productId`] && (
                           <p className="mt-1 text-xs text-red-500">
                             {error[`details.${idx}.productId`]}
@@ -652,11 +650,17 @@ export default function PurchasePage() {
                         <div className="mt-2 flex items-center gap-2">
                           <span className="text-xs text-gray-500">Qty</span>
                           <input
-                            type="number"
-                            min="1"
+                            type="text"
                             value={d.qty}
+                            onFocus={(e) => {
+                              const raw = parseNumberInput(e.target.value)
+                              if (raw > 0) updateDetail(idx, "qty", String(raw))
+                            }}
                             onChange={(e) =>
-                              updateDetail(idx, "qty", Number(e.target.value))
+                              updateDetail(idx, "qty", e.target.value)
+                            }
+                            onBlur={(e) =>
+                              updateDetail(idx, "qty", normalizeNumericText(e.target.value, 3) || "0")
                             }
                             className={`w-full rounded-xl border ${error[`details.${idx}.qty`] ? "border-red-500" : "border-orange-200"} bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300`}
                           />
@@ -669,11 +673,17 @@ export default function PurchasePage() {
                         <div className="mt-2 flex items-center gap-2">
                           <span className="text-xs text-gray-500">Harga Beli</span>
                           <input
-                            type="number"
-                            min="0"
-                            value={d.purchasePrice ?? 0}
+                            type="text"
+                            value={d.purchasePrice ?? ""}
+                            onFocus={(e) => {
+                              const raw = parseNumberInput(e.target.value)
+                              if (raw >= 0) updateDetail(idx, "purchasePrice", String(raw))
+                            }}
                             onChange={(e) =>
-                              updateDetail(idx, "purchasePrice", Number(e.target.value))
+                              updateDetail(idx, "purchasePrice", e.target.value)
+                            }
+                            onBlur={(e) =>
+                              updateDetail(idx, "purchasePrice", normalizeNumericText(e.target.value, 0, true))
                             }
                             className={`w-full rounded-xl border ${error[`details.${idx}.purchasePrice`] ? "border-red-500" : "border-orange-200"} bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300`}
                           />
@@ -687,7 +697,7 @@ export default function PurchasePage() {
                           <p className="mt-2 text-xs text-gray-500">
                             Estimasi:{" "}
                             {formatRupiah(
-                              (Number(d.qty) || 0) * (Number(d.purchasePrice) || 0),
+                              (parseNumberInput(d.qty) || 0) * (parseNumberInput(d.purchasePrice) || 0),
                             )}
                           </p>
                         )}

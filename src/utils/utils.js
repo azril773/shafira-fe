@@ -32,7 +32,7 @@ export const validateBarcode = (barcode) => {
       }
       break;
     default:
-      result = false;
+      result = true;
   }
   return result;
 };
