@@ -12,13 +12,14 @@ const PAYMENT_METHODS = ['Tunai', 'QRIS', 'Kartu Debit']
 export default function CheckoutModal({ total, items = [], mode = 'sale', onClose, onSuccess }) {
   const [method, setMethod] = useState('Tunai')
   const [cash, setCash] = useState('')
+  const [cashDraft, setCashDraft] = useState(null)
   const [loading, setLoading] = useState(false)
   const [qzStatus, setQzStatus] = useState('loading')
   const [printerName, setPrinterName] = useState('BSC10')
   const user = useAuthStore((s) => s.user)
   const cashRef = useRef(null)
 
-  const cashNum = parseNumberInput(cash)
+  const cashNum = parseNumberInput(cashDraft ?? cash)
   const change = cashNum - total
 
   // Autofocus input uang tunai saat metode Tunai dipilih
@@ -194,10 +195,18 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
               <input
                 ref={cashRef}
                 type="text"
-                value={cash}
+                value={cashDraft ?? cash}
+                onFocus={() => {
+                  const raw = parseNumberInput(cash)
+                  setCashDraft(raw > 0 ? String(raw) : '')
+                }}
                 onChange={(e) => {
+                  setCashDraft(e.target.value)
+                }}
+                onBlur={(e) => {
                   const next = parseNumberInput(e.target.value)
                   setCash(next > 0 ? formatNumberId(next, { maximumFractionDigits: 0 }) : '')
+                  setCashDraft(null)
                 }}
                 placeholder="Masukkan jumlah uang"
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
