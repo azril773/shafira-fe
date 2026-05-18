@@ -12,6 +12,7 @@ export default function RefundModal({ onClose, onSuccess }) {
   const [selectedTrx, setSelectedTrx] = useState(null)
   const [detailIds, setDetailIds] = useState([])
   const [qtyMap, setQtyMap] = useState({}) // { [detailId]: number }
+  const [qtyDrafts, setQtyDrafts] = useState({})
   const [reason, setReason] = useState('')
   const [pendingRefund, setPendingRefund] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -66,7 +67,6 @@ export default function RefundModal({ onClose, onSuccess }) {
 
   const openTrx = (trx) => {
     setSelectedTrx(trx)
-    // pre-select item yang cocok dengan query barcode (jika ada)
     const q = query.trim().toLowerCase()
     const refundable = (trx.transactionDetails || []).filter((d) => !d.isRefund)
     const initial = refundable
@@ -81,6 +81,7 @@ export default function RefundModal({ onClose, onSuccess }) {
     setQtyMap(
       Object.fromEntries(refundable.map((d) => [d.id, d.qty])),
     )
+    setQtyDrafts({})
     setReason('')
   }
 
@@ -91,9 +92,9 @@ export default function RefundModal({ onClose, onSuccess }) {
     setQtyMap((prev) => ({ ...prev, [id]: prev[id] || fullQty }))
   }
 
-  const setQtyFor = (id, value, max) => {
-    let next = parseNumberInput(value)
-    if (Number.isNaN(next) || next <= 0) next = 0.001
+  const setQtyFor = (id, raw, max) => {
+    let next = parseNumberInput(raw)
+    if (!Number.isFinite(next) || next < 0) next = 0
     if (next > max) next = max
     setQtyMap((prev) => ({ ...prev, [id]: next }))
   }
@@ -281,8 +282,20 @@ export default function RefundModal({ onClose, onSuccess }) {
                             <input
                               type="text"
                               disabled={!checked}
-                              value={formatNumberId(refundQty, { maximumFractionDigits: 3 })}
-                              onChange={(e) => setQtyFor(d.id, e.target.value, d.qty)}
+                              value={qtyDrafts[d.id] ?? formatNumberId(refundQty, { maximumFractionDigits: 3 })}
+                              onFocus={() => {
+                                setQtyDrafts((prev) => ({ ...prev, [d.id]: refundQty > 0 ? String(refundQty) : '' }))
+                              }}
+                              onChange={(e) => {
+                                const val = e.target.value
+                                const parsed = parseNumberInput(val)
+                                if (parsed > d.qty) return
+                                setQtyDrafts((prev) => ({ ...prev, [d.id]: val }))
+                              }}
+                              onBlur={(e) => {
+                                setQtyFor(d.id, e.target.value, d.qty)
+                                setQtyDrafts((prev) => { const s = { ...prev }; delete s[d.id]; return s })
+                              }}
                               className="w-16 px-2 py-1 border border-gray-200 rounded text-right text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:bg-gray-50 disabled:text-gray-400"
                             />
                           </td>
