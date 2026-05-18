@@ -21,7 +21,7 @@ import ReportsPage from "./pages/inventory/reports/reports";
 import PurchaseReturnsPage from "./pages/inventory/purchase-returns/returns";
 
 function PrivateRoute() {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user, token } = useAuthStore();
   return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
 }
 

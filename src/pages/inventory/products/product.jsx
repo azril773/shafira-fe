@@ -74,15 +74,26 @@ export default function ProductPage() {
   };
 
   const loadData = async () => {
+<<<<<<< HEAD
     const { data, totalPages: tp, error } = await searchProduct({
       page: pageParam,
       name: nameParam,
       barcode: barcodeParam,
+=======
+    const { data, totalPages, error } = await searchProduct({
+      page: currentPage,
+      code,
+      barcode: barcodeParams,
+>>>>>>> main
     });
     if (error) {
       toast.error(error);
     } else {
+<<<<<<< HEAD
       setTotalPages(tp || 1);
+=======
+      setTotalPages(totalPages);
+>>>>>>> main
       setProducts(data);
     }
   };
@@ -112,9 +123,13 @@ export default function ProductPage() {
 
   useEffect(() => {
     loadData();
+<<<<<<< HEAD
     setSelectedItem(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageParam, nameParam, barcodeParam, refresh]);
+=======
+  }, [currentPage]);
+>>>>>>> main
 
   useEffect(() => {
     (async () => {

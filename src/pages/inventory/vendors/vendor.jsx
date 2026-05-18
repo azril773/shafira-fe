@@ -53,7 +53,6 @@ export default function VendorPage() {
   }, []);
 
   const handleCreateVendor = async () => {
-    console.log(phone, name)
     const { data, error } = await createVendor({
       name,
       phone,
