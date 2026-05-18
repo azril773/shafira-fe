@@ -115,7 +115,7 @@ export function formatReceiptHtml({
         <title>Struk ${receiptId}</title>
         <style>
           body { font-family: monospace; margin: 0; padding: 0; }
-          .receipt { width: 65mm; padding: 8px; font-size: 12px; }
+          .receipt { width: 80mm; padding: 8px; font-size: 12px; }
           .center { text-align: center; }
           .bold { font-weight: bold; }
           .small { font-size: 11px; }
@@ -128,7 +128,7 @@ export function formatReceiptHtml({
           @media print {
             body { margin: 0; }
             .receipt { box-shadow: none; }
-            @page { size: 65mm auto; margin: 0; }
+            @page { size: 80mm auto; margin: 0; }
           }
         </style>
       </head>
@@ -168,6 +168,12 @@ export function formatReceiptHtml({
             Terima kasih sudah berbelanja!
           </div>
         </div>
+        <br />
+        <br />
+        <br />
+        <br />
+        <br />
+        <br />
       </body>
     </html>`
 }
