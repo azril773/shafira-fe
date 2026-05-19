@@ -56,6 +56,17 @@ export async function updateProduct({id, name, barcode, category, prices, uomId 
 }
 
 
+export async function searchProductPOS({ name }) {
+  try {
+    const params = new URLSearchParams();
+    if (name) params.append("name", name);
+    const response = await api.get(`/products/search-pos?${params.toString()}`);
+    return { data: response.data, error: "" };
+  } catch (error) {
+    return { data: [], error: getErrorMessage(error) };
+  }
+}
+
 export async function searchProduct({ page, code, barcode, name }) {
   try {
     const params = new URLSearchParams({ page: String(page ?? 1) });

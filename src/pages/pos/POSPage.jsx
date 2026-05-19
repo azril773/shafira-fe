@@ -5,7 +5,7 @@ import { formatNumberId, formatRupiah, parseNumberInput } from '../../utils/form
 import CheckoutModal from './CheckoutModal'
 import RefundModal from './RefundModal'
 import ReprintModal from './ReprintModal'
-import { searchProduct } from '../../services/productService'
+import { searchProduct, searchProductPOS } from '../../services/productService'
 import { notification } from '../../utils/toast'
 import AdminVerifyModal from '../../components/globals/AdminVerifyModal'
 import { createAuditLog } from '../../services/auditLogService'
@@ -47,12 +47,15 @@ export default function POSPage() {
   const [suspendLabel, setSuspendLabel] = useState('')
   // Draft text untuk input qty per row (biar separator dibentuk on blur, bukan tiap keystroke)
   const [cartQtyDrafts, setCartQtyDrafts] = useState({})
+  const [activeSearchIndex, setActiveSearchIndex] = useState(-1)
 
   const barcodeRef = useRef(null)
   const searchRef = useRef(null)
   const qtyRef = useRef(null)
+  const searchResultRefs = useRef([])
   const productSelectionRef = useRef(null)
   const priceSelectionRef = useRef(null)
+  const cartScrollRef = useRef(null)
 
   const { items, addItem, removeItem, updateQty, clearCart, getTotal, suspended, suspendCurrent, resumeSuspended, removeSuspended } =
     useCartStore()
@@ -73,17 +76,31 @@ export default function POSPage() {
   const total = getTotal()
 
   useEffect(() => {
+    const el = cartScrollRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [items.length])
+
+  useEffect(() => {
     const q = search.trim()
     if (!q) {
       setSearchResults([])
+      setActiveSearchIndex(-1)
       return
     }
     const handle = setTimeout(async () => {
-      const { data } = await searchProduct({ page: 1, name: q })
+      const { data } = await searchProductPOS({ name: q })
       setSearchResults(data || [])
+      setActiveSearchIndex(-1)
     }, 250)
     return () => clearTimeout(handle)
   }, [search])
+
+  const visibleSearchResults = searchResults
+
+  const focusSearchOption = (index) => {
+    const node = searchResultRefs.current[index]
+    if (node) node.focus()
+  }
 
   const getQty = () => {
     const q = parseNumberInput(scanQty)
@@ -530,18 +547,84 @@ export default function POSPage() {
                     type="text"
                     placeholder="Cari produk... (F3)"
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                    onChange={(e) => {
+                      setSearch(e.target.value)
+                      setActiveSearchIndex(-1)
+                    }}
+                    onKeyDown={(e) => {
+                      if (visibleSearchResults.length === 0) return
+
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        if (activeSearchIndex === -1) {
+                          setActiveSearchIndex(0)
+                          setTimeout(() => focusSearchOption(0), 0)
+                          return
+                        }
+                        const product = visibleSearchResults[activeSearchIndex]
+                        if (product) handleSelectProduct(product)
+                        return
+                      }
+
+                      if (e.key === 'ArrowDown') {
+                        e.preventDefault()
+                        const next =
+                          activeSearchIndex === -1
+                            ? 0
+                            : Math.min(activeSearchIndex + 1, visibleSearchResults.length - 1)
+                        setActiveSearchIndex(next)
+                        setTimeout(() => focusSearchOption(next), 0)
+                        return
+                      }
+
+                      if (e.key === 'ArrowUp') {
+                        e.preventDefault()
+                        const prev =
+                          activeSearchIndex === -1
+                            ? visibleSearchResults.length - 1
+                            : Math.max(activeSearchIndex - 1, 0)
+                        setActiveSearchIndex(prev)
+                        setTimeout(() => focusSearchOption(prev), 0)
+                      }
+                    }}
                     className="w-full pl-10 pr-4 py-2.5 border border-orange-200 rounded-full text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300"
                   />
                   {search && (
                     <div className="absolute left-0 right-0 top-full z-10 mt-2 rounded-3xl bg-white shadow-lg border border-orange-100 max-h-72 overflow-y-auto">
-                      {searchResults.length > 0 ? (
-                        searchResults.slice(0, 8).map((product) => (
+                      {visibleSearchResults.length > 0 ? (
+                        visibleSearchResults.map((product, index) => (
                           <button
                             key={product.id}
                             type="button"
+                            ref={(el) => {
+                              searchResultRefs.current[index] = el
+                            }}
+                            onFocus={() => setActiveSearchIndex(index)}
+                            onMouseEnter={() => setActiveSearchIndex(index)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'ArrowDown') {
+                                e.preventDefault()
+                                const next = Math.min(index + 1, visibleSearchResults.length - 1)
+                                setActiveSearchIndex(next)
+                                focusSearchOption(next)
+                                return
+                              }
+                              if (e.key === 'ArrowUp') {
+                                e.preventDefault()
+                                const prev = Math.max(index - 1, 0)
+                                setActiveSearchIndex(prev)
+                                focusSearchOption(prev)
+                                return
+                              }
+                              if (e.key === 'Enter') {
+                                e.preventDefault()
+                                handleSelectProduct(product)
+                              }
+                            }}
                             onClick={() => handleSelectProduct(product)}
-                            className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-orange-50"
+                            className={`w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-orange-50 ${
+                              activeSearchIndex === index ? 'bg-orange-50' : ''
+                            }`}
                           >
                             <div className="font-semibold">{product.name}</div>
                             <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -566,7 +649,7 @@ export default function POSPage() {
             {scanError && <p className="mt-3 text-sm text-red-500">{scanError}</p>}
 
             <div className="mt-6 flex-1 min-h-0 overflow-x-auto">
-              <div className="h-full min-h-0 max-h-[520px] overflow-y-auto rounded-[32px] border border-orange-100">
+              <div ref={cartScrollRef} className="h-full min-h-0 max-h-[520px] overflow-y-auto rounded-[32px] border border-orange-100">
                 <table className="w-full min-w-[720px]">
                   <thead>
                     <tr className="text-left text-gray-500 text-sm border-b border-orange-100">

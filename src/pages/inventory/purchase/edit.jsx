@@ -38,6 +38,7 @@ export default function EditPurchasePage() {
   const [details, setDetails] = useState([{ productId: "", qty: "1", purchasePrice: "0" }]);
   const [error, setError] = useState({});
   const [loading, setLoading] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   const productMap = useMemo(() => {
     const map = new Map();
@@ -80,6 +81,15 @@ export default function EditPurchasePage() {
       );
     }
   }, [purchase]);
+
+  useEffect(() => {
+    if (!showDetailsModal) return;
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") setShowDetailsModal(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [showDetailsModal]);
 
   const checkError = () => {
     const tempError = {};
@@ -137,6 +147,11 @@ export default function EditPurchasePage() {
     toast.success("Pembelian berhasil diperbarui.");
     navigate("/inventory/purchases");
   };
+
+  const detailFieldErrorCount = Object.keys(error).filter((k) =>
+    k.startsWith("details."),
+  ).length;
+  const hasDetailError = Boolean(error.details) || detailFieldErrorCount > 0;
 
   if (!purchase) {
     return (
@@ -237,108 +252,27 @@ export default function EditPurchasePage() {
               <span className="text-sm font-semibold text-gray-700">
                 Daftar Produk
               </span>
-              <button
-                type="button"
-                onClick={() =>
-                  setDetails((prev) => [...prev, { productId: "", qty: "1", purchasePrice: "0" }])
-                }
-                className="rounded-full border border-orange-300 px-3 py-1 text-xs font-semibold text-orange-600 hover:bg-orange-50"
-              >
-                + Tambah Produk
-              </button>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500">{details.length} item</span>
+                <button
+                  type="button"
+                  onClick={() => setShowDetailsModal(true)}
+                  className="rounded-full border border-orange-300 px-3 py-1 text-xs font-semibold text-orange-600 hover:bg-orange-50"
+                >
+                  Kelola di Modal
+                </button>
+              </div>
             </div>
+            {hasDetailError && (
+              <p className="mt-1 text-xs font-semibold text-red-500">
+                Ada error di detail pembelian{detailFieldErrorCount > 0 ? ` (${detailFieldErrorCount} field)` : ""}. Buka modal untuk perbaiki.
+              </p>
+            )}
             {error.details && (
               <p className="mt-1 text-xs text-red-500">{error.details}</p>
             )}
-            <div className="mt-3 space-y-3">
-              {details.map((d, idx) => (
-                <div
-                  key={idx}
-                  className="rounded-2xl border border-orange-100 bg-orange-50/40 p-3"
-                >
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-500">
-                      Produk {idx + 1}
-                    </p>
-                    {details.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setDetails((prev) => prev.filter((_, i) => i !== idx))
-                        }
-                        className="text-xs font-semibold text-red-500 hover:text-red-700"
-                      >
-                        Hapus
-                      </button>
-                    )}
-                  </div>
-                  <ProductSearchSelect
-                    products={products}
-                    value={d.productId}
-                    onChange={(id) => updateDetail(idx, "productId", id)}
-                    error={error[`details.${idx}.productId`]}
-                  />
-                  {error[`details.${idx}.productId`] && (
-                    <p className="mt-1 text-xs text-red-500">
-                      {error[`details.${idx}.productId`]}
-                    </p>
-                  )}
-                  <div className="mt-2 flex items-center gap-2">
-                    <span className="text-xs text-gray-500">Qty</span>
-                    <input
-                      type="text"
-                      value={d.qty}
-                      onFocus={(e) => {
-                        const raw = parseNumberInput(e.target.value)
-                        if (raw > 0) updateDetail(idx, "qty", String(raw))
-                      }}
-                      onChange={(e) =>
-                        updateDetail(idx, "qty", e.target.value)
-                      }
-                      onBlur={(e) =>
-                        updateDetail(idx, "qty", normalizeNumericText(e.target.value, 3) || "0")
-                      }
-                      className={`w-full rounded-xl border ${error[`details.${idx}.qty`] ? "border-red-500" : "border-orange-200"} bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300`}
-                    />
-                  </div>
-                  {error[`details.${idx}.qty`] && (
-                    <p className="mt-1 text-xs text-red-500">
-                      {error[`details.${idx}.qty`]}
-                    </p>
-                  )}
-                  <div className="mt-2 flex items-center gap-2">
-                    <span className="text-xs text-gray-500">Harga Beli</span>
-                    <input
-                      type="text"
-                      value={d.purchasePrice ?? ""}
-                      onFocus={(e) => {
-                        const raw = parseNumberInput(e.target.value)
-                        if (raw >= 0) updateDetail(idx, "purchasePrice", String(raw))
-                      }}
-                      onChange={(e) =>
-                        updateDetail(idx, "purchasePrice", e.target.value)
-                      }
-                      onBlur={(e) =>
-                        updateDetail(idx, "purchasePrice", normalizeNumericText(e.target.value, 0, true))
-                      }
-                      className={`w-full rounded-xl border ${error[`details.${idx}.purchasePrice`] ? "border-red-500" : "border-orange-200"} bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300`}
-                    />
-                  </div>
-                  {error[`details.${idx}.purchasePrice`] && (
-                    <p className="mt-1 text-xs text-red-500">
-                      {error[`details.${idx}.purchasePrice`]}
-                    </p>
-                  )}
-                  {d.productId && productMap.get(d.productId) && (
-                    <p className="mt-2 text-xs text-gray-500">
-                      Estimasi:{" "}
-                      {formatRupiah(
-                        (parseNumberInput(d.qty) || 0) * (parseNumberInput(d.purchasePrice) || 0),
-                      )}
-                    </p>
-                  )}
-                </div>
-              ))}
+            <div className="mt-3 rounded-2xl border border-orange-100 bg-orange-50/40 p-3 text-sm text-gray-600">
+              Edit detail barang lewat modal agar daftar item panjang tidak membuat halaman utama ikut memanjang.
             </div>
           </div>
 
@@ -361,6 +295,146 @@ export default function EditPurchasePage() {
           </div>
         </div>
       </div>
+
+      {showDetailsModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowDetailsModal(false);
+          }}
+        >
+          <div className="w-full max-w-4xl rounded-3xl bg-white shadow-2xl">
+            <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-orange-100 bg-white px-6 py-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Edit Detail Barang</h3>
+                <p className="mt-1 text-sm text-gray-600">Atur produk, qty, dan harga beli di sini.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDetailsModal(false)}
+                className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1.5 text-sm font-semibold text-orange-700 hover:bg-orange-100"
+              >
+                Selesai
+              </button>
+            </div>
+
+            <div className="max-h-[62vh] overflow-y-auto px-6 py-4">
+              <div className="space-y-3">
+                {details.map((d, idx) => (
+                  <div
+                    key={idx}
+                    className="rounded-2xl border border-orange-100 bg-orange-50/40 p-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-500">
+                        Produk {idx + 1}
+                      </p>
+                      {details.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setDetails((prev) => prev.filter((_, i) => i !== idx))
+                          }
+                          className="text-xs font-semibold text-red-500 hover:text-red-700"
+                        >
+                          Hapus
+                        </button>
+                      )}
+                    </div>
+                    <ProductSearchSelect
+                      products={products}
+                      value={d.productId}
+                      onChange={(id) => updateDetail(idx, "productId", id)}
+                      error={error[`details.${idx}.productId`]}
+                    />
+                    {error[`details.${idx}.productId`] && (
+                      <p className="mt-1 text-xs text-red-500">
+                        {error[`details.${idx}.productId`]}
+                      </p>
+                    )}
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="text-xs text-gray-500">Qty</span>
+                      <input
+                        type="text"
+                        value={d.qty}
+                        onFocus={(e) => {
+                          const raw = parseNumberInput(e.target.value)
+                          if (raw > 0) updateDetail(idx, "qty", String(raw))
+                        }}
+                        onChange={(e) =>
+                          updateDetail(idx, "qty", e.target.value)
+                        }
+                        onBlur={(e) =>
+                          updateDetail(idx, "qty", normalizeNumericText(e.target.value, 3) || "0")
+                        }
+                        className={`w-full rounded-xl border ${error[`details.${idx}.qty`] ? "border-red-500" : "border-orange-200"} bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300`}
+                      />
+                    </div>
+                    {error[`details.${idx}.qty`] && (
+                      <p className="mt-1 text-xs text-red-500">
+                        {error[`details.${idx}.qty`]}
+                      </p>
+                    )}
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="text-xs text-gray-500">Harga Beli</span>
+                      <input
+                        type="text"
+                        value={d.purchasePrice ?? ""}
+                        onFocus={(e) => {
+                          const raw = parseNumberInput(e.target.value)
+                          if (raw >= 0) updateDetail(idx, "purchasePrice", String(raw))
+                        }}
+                        onChange={(e) =>
+                          updateDetail(idx, "purchasePrice", e.target.value)
+                        }
+                        onBlur={(e) =>
+                          updateDetail(idx, "purchasePrice", normalizeNumericText(e.target.value, 0, true))
+                        }
+                        className={`w-full rounded-xl border ${error[`details.${idx}.purchasePrice`] ? "border-red-500" : "border-orange-200"} bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300`}
+                      />
+                    </div>
+                    {error[`details.${idx}.purchasePrice`] && (
+                      <p className="mt-1 text-xs text-red-500">
+                        {error[`details.${idx}.purchasePrice`]}
+                      </p>
+                    )}
+                    {d.productId && productMap.get(d.productId) && (
+                      <p className="mt-2 text-xs text-gray-500">
+                        Estimasi:{" "}
+                        {formatRupiah(
+                          (parseNumberInput(d.qty) || 0) * (parseNumberInput(d.purchasePrice) || 0),
+                        )}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="sticky bottom-0 z-10 flex items-center justify-between gap-3 border-t border-orange-100 bg-white px-6 py-4">
+              <p className="text-xs text-gray-500">{details.length} item dalam pembelian</p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDetails((prev) => [...prev, { productId: "", qty: "1", purchasePrice: "0" }])
+                  }
+                  className="rounded-full border border-orange-300 px-3 py-1.5 text-xs font-semibold text-orange-600 hover:bg-orange-50"
+                >
+                  + Tambah Produk
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowDetailsModal(false)}
+                  className="rounded-full bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-600"
+                >
+                  Selesai
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
