@@ -51,9 +51,23 @@ export default function POSPage() {
   const barcodeRef = useRef(null)
   const searchRef = useRef(null)
   const qtyRef = useRef(null)
+  const productSelectionRef = useRef(null)
+  const priceSelectionRef = useRef(null)
 
   const { items, addItem, removeItem, updateQty, clearCart, getTotal, suspended, suspendCurrent, resumeSuspended, removeSuspended } =
     useCartStore()
+
+  useEffect(() => {
+    if (!productSelection) return
+    const t = setTimeout(() => productSelectionRef.current?.querySelector('[data-item]')?.focus(), 0)
+    return () => clearTimeout(t)
+  }, [productSelection])
+
+  useEffect(() => {
+    if (!priceSelection) return
+    const t = setTimeout(() => priceSelectionRef.current?.querySelector('[data-item]')?.focus(), 0)
+    return () => clearTimeout(t)
+  }, [priceSelection])
 
   const itemTotal = items.reduce((sum, item) => sum + item.qty, 0)
   const total = getTotal()
@@ -666,13 +680,23 @@ export default function POSPage() {
                     ✕
                   </button>
                 </div>
-                <div className="mt-6 grid gap-3 max-h-80 overflow-y-auto">
+                <div
+                  ref={productSelectionRef}
+                  className="mt-6 grid gap-3 max-h-80 overflow-y-auto"
+                  onKeyDown={(e) => {
+                    const btns = [...productSelectionRef.current?.querySelectorAll('[data-item]') ?? []]
+                    const idx = btns.indexOf(document.activeElement)
+                    if (e.key === 'ArrowDown') { e.preventDefault(); btns[(idx + 1) % btns.length]?.focus() }
+                    if (e.key === 'ArrowUp') { e.preventDefault(); btns[(idx - 1 + btns.length) % btns.length]?.focus() }
+                  }}
+                >
                   {productSelection.products.map((p) => (
                     <button
                       key={p.id}
                       type="button"
+                      data-item
                       onClick={() => handleSelectProduct(p)}
-                      className="w-full rounded-3xl border border-orange-200 bg-orange-50 px-4 py-3 text-left text-sm text-gray-700 hover:bg-orange-100"
+                      className="w-full rounded-3xl border border-orange-200 bg-orange-50 px-4 py-3 text-left text-sm text-gray-700 hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-400"
                     >
                       <div className="font-semibold">{p.name}</div>
                       <div className="mt-1 text-xs text-gray-500">
@@ -703,13 +727,23 @@ export default function POSPage() {
                     ✕
                   </button>
                 </div>
-                <div className="mt-6 grid gap-3">
+                <div
+                  ref={priceSelectionRef}
+                  className="mt-6 grid gap-3"
+                  onKeyDown={(e) => {
+                    const btns = [...priceSelectionRef.current?.querySelectorAll('[data-item]') ?? []]
+                    const idx = btns.indexOf(document.activeElement)
+                    if (e.key === 'ArrowDown') { e.preventDefault(); btns[(idx + 1) % btns.length]?.focus() }
+                    if (e.key === 'ArrowUp') { e.preventDefault(); btns[(idx - 1 + btns.length) % btns.length]?.focus() }
+                  }}
+                >
                   {priceSelection.product.prices.map((option) => (
                     <button
                       key={option.id || option.name}
                       type="button"
+                      data-item
                       onClick={() => handlePriceChoice(option)}
-                      className="w-full rounded-3xl border border-orange-200 bg-orange-50 px-4 py-4 text-left text-sm text-gray-700 hover:bg-orange-100"
+                      className="w-full rounded-3xl border border-orange-200 bg-orange-50 px-4 py-4 text-left text-sm text-gray-700 hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-400"
                     >
                       <div className="font-semibold">{option.name}</div>
                       <div className="mt-1 text-gray-500">{formatRupiah(Number(option.price))}</div>
