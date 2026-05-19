@@ -2,58 +2,101 @@ import { useEffect, useRef, useState } from 'react'
 
 /**
  * Custom searchable dropdown for selecting a product.
- * Replaces the separate <select> + search <input> combo.
  *
  * Props:
- *   products  - full product array [{ id, name, barcode, ... }]
- *   value     - currently selected product id (string)
- *   onChange  - (productId: string) => void
- *   error     - error message string (or falsy)
+ *   products    - full product array (sync mode)
+ *   value       - currently selected product id
+ *   valueName   - display name for the selected value (async mode)
+ *   onChange    - (productId: string, product?) => void
+ *   onSearch    - async (q: string) => Product[]  (enables async/server-side mode)
+ *   error       - error message string (or falsy)
  */
-export default function ProductSearchSelect({ products = [], value, onChange, error }) {
+export default function ProductSearchSelect({ products = [], value, valueName, onChange, onSearch, error }) {
   const [inputText, setInputText] = useState('')
   const [open, setOpen] = useState(false)
+  const [asyncResults, setAsyncResults] = useState([])
+  const [searching, setSearching] = useState(false)
   const containerRef = useRef(null)
+  const inputRef = useRef(null)
+  const debounceRef = useRef(null)
 
-  // Sync display text whenever the external value or products list changes
+  // Sync display text only when value/valueName changes externally
+  // NOTE: 'products' intentionally excluded from deps — its default [] creates
+  // a new reference every parent render, which would reset inputText while typing.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!value) {
       setInputText('')
       return
     }
-    const found = products.find((p) => p.id === value)
-    if (found) setInputText(found.name)
-  }, [value, products])
+    if (onSearch) {
+      if (valueName) setInputText(valueName)
+    } else {
+      const found = products.find((p) => p.id === value)
+      if (found) setInputText(found.name)
+    }
+  }, [value, valueName])
 
-  const filtered = products.filter((p) =>
-    p.name.toLowerCase().includes(inputText.toLowerCase()) ||
-    (p.barcode || '').toLowerCase().includes(inputText.toLowerCase())
-  )
+  // Sync mode: filter locally
+  const filtered = !onSearch && inputText.trim()
+    ? products.filter((p) =>
+        p.name.toLowerCase().includes(inputText.toLowerCase()) ||
+        (p.barcode || '').toLowerCase().includes(inputText.toLowerCase())
+      )
+    : []
+
+  const displayItems = onSearch ? asyncResults : filtered
 
   const handleSelect = (product) => {
-    onChange(product.id)
+    onChange(product.id, product)
     setInputText(product.name)
     setOpen(false)
+    if (onSearch) setAsyncResults([])
   }
 
   const handleInputChange = (e) => {
-    setInputText(e.target.value)
+    const text = e.target.value
+    setInputText(text)
     setOpen(true)
-    // If user clears the text, clear selection too
-    if (!e.target.value.trim()) onChange('')
+    if (!text.trim()) {
+      onChange('', null)
+      if (onSearch) {
+        clearTimeout(debounceRef.current)
+        setAsyncResults([])
+        setSearching(false)
+      }
+      return
+    }
+    if (onSearch) {
+      clearTimeout(debounceRef.current)
+      setSearching(true)
+      debounceRef.current = setTimeout(async () => {
+        try {
+          const results = await onSearch(text)
+          setAsyncResults(results || [])
+        } catch {
+          setAsyncResults([])
+        } finally {
+          setSearching(false)
+        }
+      }, 350)
+    }
   }
 
   const handleBlur = () => {
-    // Delay so mousedown on an option fires first
     setTimeout(() => {
       if (!containerRef.current?.contains(document.activeElement)) {
         setOpen(false)
-        // Restore display text to selected product name (or clear)
-        if (value) {
-          const found = products.find((p) => p.id === value)
-          setInputText(found ? found.name : '')
+        if (onSearch) {
+          setInputText(value ? (valueName || inputText) : '')
+          setAsyncResults([])
         } else {
-          setInputText('')
+          if (value) {
+            const found = products.find((p) => p.id === value)
+            setInputText(found ? found.name : '')
+          } else {
+            setInputText('')
+          }
         }
       }
     }, 150)
@@ -62,6 +105,7 @@ export default function ProductSearchSelect({ products = [], value, onChange, er
   return (
     <div ref={containerRef} className="relative">
       <input
+        ref={inputRef}
         type="text"
         value={inputText}
         onChange={handleInputChange}
@@ -74,14 +118,25 @@ export default function ProductSearchSelect({ products = [], value, onChange, er
             : 'border-orange-200 focus:ring-orange-300'
         } bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2`}
       />
-      {open && (
-        <div className="absolute z-20 mt-1 max-h-52 w-full overflow-y-auto rounded-xl border border-orange-200 bg-white shadow-lg">
-          {filtered.length === 0 ? (
+      {open && inputText.trim() && (() => {
+        const rect = inputRef.current?.getBoundingClientRect()
+        const style = rect ? {
+          position: 'fixed',
+          top: rect.bottom + 4,
+          left: rect.left,
+          width: rect.width,
+          zIndex: 9999,
+        } : {}
+        return (
+        <div style={style} className="max-h-52 overflow-y-auto rounded-xl border border-orange-200 bg-white shadow-lg">
+          {searching ? (
+            <div className="px-3 py-2.5 text-sm text-gray-400">Mencari...</div>
+          ) : displayItems.length === 0 ? (
             <div className="px-3 py-2.5 text-sm text-gray-400">
               Produk tidak ditemukan.
             </div>
           ) : (
-            filtered.map((p) => (
+            displayItems.map((p) => (
               <button
                 key={p.id}
                 type="button"
@@ -102,7 +157,8 @@ export default function ProductSearchSelect({ products = [], value, onChange, er
             ))
           )}
         </div>
-      )}
+        )
+      })()}
     </div>
   )
 }

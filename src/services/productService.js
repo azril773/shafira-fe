@@ -56,6 +56,15 @@ export async function updateProduct({id, name, barcode, category, prices, uomId 
 }
 
 
+export async function updateProductStock({ id, stock, reason }) {
+  try {
+    const response = await api.put(`/products/${id}/stock`, { stock, reason });
+    return { data: response.data, error: "" };
+  } catch (error) {
+    return { data: null, error: getErrorMessage(error) };
+  }
+}
+
 export async function searchProductPOS({ name }) {
   try {
     const params = new URLSearchParams();
@@ -64,6 +73,17 @@ export async function searchProductPOS({ name }) {
     return { data: response.data, error: "" };
   } catch (error) {
     return { data: [], error: getErrorMessage(error) };
+  }
+}
+
+export async function searchProductForPurchase({ q }) {
+  try {
+    const params = new URLSearchParams();
+    if (q) params.append("q", q);
+    const response = await api.get(`/products/search-purchase?${params.toString()}`);
+    return response.data;
+  } catch {
+    return [];
   }
 }
 

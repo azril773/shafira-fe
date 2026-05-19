@@ -630,11 +630,13 @@ export default function POSPage() {
                             <div className="flex items-center gap-2 text-xs text-gray-500">
                               <span>{product.category}</span>
                               <span>Stok: {formatNumberId(Number(product.stock) || 0)}</span>
-                              {product.prices?.length > 1 && (
+                              {product.prices?.length === 1 ? (
+                                <span className="font-semibold text-gray-700">{formatRupiah(product.prices[0].price)}</span>
+                              ) : product.prices?.length > 1 ? (
                                 <span className="rounded-full bg-orange-100 px-2 py-0.5 font-semibold text-orange-700">
                                   Pilih Harga
                                 </span>
-                              )}
+                              ) : null}
                             </div>
                           </button>
                         ))

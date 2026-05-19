@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
@@ -7,7 +7,7 @@ import {
   searchPurchase,
   updatePurchaseStatus,
 } from "../../../services/purchaseService";
-import { getProducts } from "../../../services/productService";
+import { searchProductForPurchase } from "../../../services/productService";
 import { formatNumberId, formatRupiah, parseNumberInput } from "../../../utils/format";
 import PaginationTableNoLink from "../../../components/globals/pagination";
 import ProductSearchSelect from "../../../components/globals/ProductSearchSelect";
@@ -74,7 +74,6 @@ export default function PurchasePage() {
   const purchaseDateParam = searchParams.get("purchaseDate") || "";
 
   const [vendors, setVendors] = useState([]);
-  const [products, setProducts] = useState([]);
   const [purchases, setPurchases] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null);
   const [currentPage, setCurrentPage] = useState(pageParam);
@@ -92,22 +91,21 @@ export default function PurchasePage() {
   // Create form state
   const [vendorId, setVendorId] = useState("");
   const [purchaseDate, setPurchaseDate] = useState("");
-  const [details, setDetails] = useState([{ productId: "", qty: "1", purchasePrice: "0" }]);
+  const [details, setDetails] = useState([{ productId: "", productName: "", qty: "1", purchasePrice: "0" }]);
   const [error, setError] = useState({});
 
-  const productMap = useMemo(() => {
-    const map = new Map();
-    products.forEach((p) => map.set(p.id, p));
-    return map;
-  }, [products]);
+  const detailsScrollRef = useRef(null);
+  useEffect(() => {
+    if (!showCreateDetailsModal) return;
+    if (detailsScrollRef.current) {
+      detailsScrollRef.current.scrollTop = detailsScrollRef.current.scrollHeight;
+    }
+  }, [details.length, showCreateDetailsModal]);
 
   const loadMasterData = async () => {
-    const [{ data: vendorData, error: vendorError }, { data: productData, error: productError }] =
-      await Promise.all([getVendors(), getProducts()]);
+    const { data: vendorData, error: vendorError } = await getVendors();
     if (vendorError) toast.error(vendorError);
     else setVendors(vendorData || []);
-    if (productError) toast.error(productError);
-    else setProducts(productData || []);
   };
 
   const loadPurchases = async () => {
@@ -186,7 +184,7 @@ export default function PurchasePage() {
     toast.success("Pembelian berhasil dibuat!");
     setVendorId("");
     setPurchaseDate("");
-    setDetails([{ productId: "", qty: "1", purchasePrice: "0" }]);
+    setDetails([{ productId: "", productName: "", qty: "1", purchasePrice: "0" }]);
     setShowCreateDetailsModal(false);
     setRefresh(new Date().toISOString());
   };
@@ -233,7 +231,14 @@ export default function PurchasePage() {
     setShowDetailModal(true);
   };
 
-  const updateDetail = (index, key, value) => {
+  const updateDetail = (index, key, value, product = null) => {
+    if (key === "productId" && value) {
+      const duplicateDetail = details.find((d, i) => i !== index && d.productId === value);
+      if (duplicateDetail) {
+        toast.warning(`${duplicateDetail.productName || "Produk ini"} sudah ada dalam daftar pembelian.`);
+        return;
+      }
+    }
     setError((prev) => {
       const cleaned = { ...prev };
       delete cleaned[`details.${index}.${key}`];
@@ -242,7 +247,11 @@ export default function PurchasePage() {
     });
     setDetails((prev) => {
       const next = [...prev];
-      next[index] = { ...next[index], [key]: value };
+      if (key === "productId") {
+        next[index] = { ...next[index], productId: value, productName: product?.name || "" };
+      } else {
+        next[index] = { ...next[index], [key]: value };
+      }
       return next;
     });
   };
@@ -344,21 +353,6 @@ export default function PurchasePage() {
                 {vendors.map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block text-sm text-gray-600">
-              Produk
-              <select
-                value={filterProduct}
-                onChange={(e) => setFilterProduct(e.target.value)}
-                className="mt-2 w-full rounded-xl border border-orange-200 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300"
-              >
-                <option value="">Semua Produk</option>
-                {products.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
                   </option>
                 ))}
               </select>
@@ -721,7 +715,7 @@ export default function PurchasePage() {
               </button>
             </div>
 
-            <div className="max-h-[62vh] overflow-y-auto px-6 py-4">
+            <div ref={detailsScrollRef} className="max-h-[62vh] overflow-y-auto px-6 py-4">
               <div className="space-y-3">
                 {details.map((d, idx) => (
                   <div
@@ -745,9 +739,10 @@ export default function PurchasePage() {
                       )}
                     </div>
                     <ProductSearchSelect
-                      products={products}
                       value={d.productId}
-                      onChange={(id) => updateDetail(idx, "productId", id)}
+                      valueName={d.productName}
+                      onSearch={(q) => searchProductForPurchase({ q })}
+                      onChange={(id, product) => updateDetail(idx, "productId", id, product)}
                       error={error[`details.${idx}.productId`]}
                     />
                     {error[`details.${idx}.productId`] && (
@@ -801,7 +796,7 @@ export default function PurchasePage() {
                         {error[`details.${idx}.purchasePrice`]}
                       </p>
                     )}
-                    {d.productId && productMap.get(d.productId) && (
+                    {d.productId && d.productName && (
                       <p className="mt-2 text-xs text-gray-500">
                         Estimasi:{" "}
                         {formatRupiah(
@@ -819,9 +814,16 @@ export default function PurchasePage() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() =>
-                    setDetails((prev) => [...prev, { productId: "", qty: "1", purchasePrice: "0" }])
-                  }
+                  onClick={() => {
+                    const hasInvalid = details.some(
+                      (d) => !d.productId || parseNumberInput(d.qty) <= 0,
+                    );
+                    if (hasInvalid) {
+                      toast.warning("Lengkapi semua produk sebelum menambah baris baru.");
+                      return;
+                    }
+                    setDetails((prev) => [...prev, { productId: "", productName: "", qty: "1", purchasePrice: "0" }]);
+                  }}
                   className="rounded-full border border-orange-300 px-3 py-1.5 text-xs font-semibold text-orange-600 hover:bg-orange-50"
                 >
                   + Tambah Produk

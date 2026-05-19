@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
@@ -6,7 +6,7 @@ import {
   getVendors,
   updatePurchase,
 } from "../../../services/purchaseService";
-import { getProducts } from "../../../services/productService";
+import { searchProductForPurchase } from "../../../services/productService";
 import { formatNumberId, formatRupiah, parseNumberInput } from "../../../utils/format";
 import ProductSearchSelect from "../../../components/globals/ProductSearchSelect";
 
@@ -31,7 +31,6 @@ export default function EditPurchasePage() {
 
   const [purchase, setPurchase] = useState(location.state?.purchase || null);
   const [vendors, setVendors] = useState([]);
-  const [products, setProducts] = useState([]);
 
   const [vendorId, setVendorId] = useState("");
   const [purchaseDate, setPurchaseDate] = useState("");
@@ -40,20 +39,20 @@ export default function EditPurchasePage() {
   const [loading, setLoading] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
-  const productMap = useMemo(() => {
-    const map = new Map();
-    products.forEach((p) => map.set(p.id, p));
-    return map;
-  }, [products]);
+  const detailsScrollRef = useRef(null);
+  useEffect(() => {
+    if (!showDetailsModal) return;
+    if (detailsScrollRef.current) {
+      detailsScrollRef.current.scrollTop = detailsScrollRef.current.scrollHeight;
+    }
+  }, [details.length, showDetailsModal]);
 
   useEffect(() => {
     (async () => {
-      const [{ data: vendorData, error: vendorError }, { data: productData, error: productError }] =
-        await Promise.all([getVendors(), getProducts()]);
+      const [{ data: vendorData, error: vendorError }] =
+        await Promise.all([getVendors()]);
       if (vendorError) toast.error(vendorError);
       else setVendors(vendorData || []);
-      if (productError) toast.error(productError);
-      else setProducts(productData || []);
 
       if (id) {
         const { data, error } = await getPurchaseById(id);
@@ -75,6 +74,7 @@ export default function EditPurchasePage() {
       setDetails(
         purchase.purchaseDetails.map((d) => ({
           productId: d.productId || d.product?.id || "",
+          productName: d.product?.name || "",
           qty: formatNumberId(d.qty || 1, { maximumFractionDigits: 3 }),
           purchasePrice: formatNumberId(Number(d.purchasePrice) || 0, { maximumFractionDigits: 0 }),
         })),
@@ -112,7 +112,14 @@ export default function EditPurchasePage() {
     return Object.keys(tempError).length === 0;
   };
 
-  const updateDetail = (index, key, value) => {
+  const updateDetail = (index, key, value, product = null) => {
+    if (key === "productId" && value) {
+      const duplicateDetail = details.find((d, i) => i !== index && d.productId === value);
+      if (duplicateDetail) {
+        toast.warning(`${duplicateDetail.productName || "Produk ini"} sudah ada dalam daftar pembelian.`);
+        return;
+      }
+    }
     setError((prev) => {
       const cleaned = { ...prev };
       delete cleaned[`details.${index}.${key}`];
@@ -121,7 +128,11 @@ export default function EditPurchasePage() {
     });
     setDetails((prev) => {
       const next = [...prev];
-      next[index] = { ...next[index], [key]: value };
+      if (key === "productId") {
+        next[index] = { ...next[index], productId: value, productName: product?.name || "" };
+      } else {
+        next[index] = { ...next[index], [key]: value };
+      }
       return next;
     });
   };
@@ -318,7 +329,7 @@ export default function EditPurchasePage() {
               </button>
             </div>
 
-            <div className="max-h-[62vh] overflow-y-auto px-6 py-4">
+            <div ref={detailsScrollRef} className="max-h-[62vh] overflow-y-auto px-6 py-4">
               <div className="space-y-3">
                 {details.map((d, idx) => (
                   <div
@@ -342,9 +353,10 @@ export default function EditPurchasePage() {
                       )}
                     </div>
                     <ProductSearchSelect
-                      products={products}
                       value={d.productId}
-                      onChange={(id) => updateDetail(idx, "productId", id)}
+                      valueName={d.productName}
+                      onSearch={(q) => searchProductForPurchase({ q })}
+                      onChange={(id, product) => updateDetail(idx, "productId", id, product)}
                       error={error[`details.${idx}.productId`]}
                     />
                     {error[`details.${idx}.productId`] && (
@@ -398,7 +410,7 @@ export default function EditPurchasePage() {
                         {error[`details.${idx}.purchasePrice`]}
                       </p>
                     )}
-                    {d.productId && productMap.get(d.productId) && (
+                    {d.productId && d.productName && (
                       <p className="mt-2 text-xs text-gray-500">
                         Estimasi:{" "}
                         {formatRupiah(
@@ -416,9 +428,16 @@ export default function EditPurchasePage() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() =>
-                    setDetails((prev) => [...prev, { productId: "", qty: "1", purchasePrice: "0" }])
-                  }
+                  onClick={() => {
+                    const hasInvalid = details.some(
+                      (d) => !d.productId || parseNumberInput(d.qty) <= 0,
+                    );
+                    if (hasInvalid) {
+                      toast.warning("Lengkapi semua produk sebelum menambah baris baru.");
+                      return;
+                    }
+                    setDetails((prev) => [...prev, { productId: "", productName: "", qty: "1", purchasePrice: "0" }]);
+                  }}
                   className="rounded-full border border-orange-300 px-3 py-1.5 text-xs font-semibold text-orange-600 hover:bg-orange-50"
                 >
                   + Tambah Produk

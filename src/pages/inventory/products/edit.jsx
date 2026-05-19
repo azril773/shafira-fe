@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   productService,
   updateProduct,
+  updateProductStock,
 } from "../../../services/productService";
 import { getUoms } from "../../../services/uomService";
 import { toast } from "react-toastify";
@@ -20,13 +21,10 @@ export default function EditProductPage() {
   const [barcode, setBarcode] = useState("");
   const [uomId, setUomId] = useState("");
   const [uomList, setUomList] = useState([]);
-  // const [form, setForm] = useState({
-  //   name: "",
-  //   barcode: "",
-  //   category: "",
-  //   price: "",
-  //   pricesText: "",
-  // });
+  const [stock, setStock] = useState(0);
+  const [stockInput, setStockInput] = useState("");
+  const [stockReason, setStockReason] = useState("");
+  const [stockLoading, setStockLoading] = useState(false);
   const [error, setError] = useState({});
 
   useEffect(() => {
@@ -35,6 +33,8 @@ export default function EditProductPage() {
     setCategory(product.category || "");
     setBarcode(product.barcode || "");
     setUomId(product.uomId || product.uom?.id || "");
+    setStock(product.stock ?? 0);
+    setStockInput(String(product.stock ?? 0));
     const mainPrice = product.price || 0;
     const additionalPrices = product.prices || [];
     setPrices(
@@ -71,6 +71,29 @@ export default function EditProductPage() {
     });
     setError(tempError);
     return Object.keys(tempError).length === 0;
+  };
+
+  const handleUpdateStock = async () => {
+    const newStock = parseInt(stockInput, 10);
+    if (isNaN(newStock) || newStock < 0) {
+      toast.error("Stok harus berupa angka non-negatif.");
+      return;
+    }
+    setStockLoading(true);
+    const { data, error: err } = await updateProductStock({
+      id,
+      stock: newStock,
+      reason: stockReason || undefined,
+    });
+    setStockLoading(false);
+    if (err) {
+      toast.error(err);
+      return;
+    }
+    setStock(data.stock);
+    setStockInput(String(data.stock));
+    setStockReason("");
+    toast.success("Stok berhasil diperbarui dan tercatat di audit log.");
   };
 
   const handleSave = async () => {
@@ -192,6 +215,51 @@ export default function EditProductPage() {
               ))}
             </select>
           </label>
+
+          {/* ─── Edit Stok ─── */}
+          <div className="rounded-3xl border border-orange-200 bg-orange-50 p-5 space-y-4">
+            <div>
+              <p className="text-sm font-semibold text-gray-700">Edit Stok</p>
+              <p className="mt-1 text-xs text-gray-500">
+                Perubahan stok akan dicatat di audit log beserta aktor yang melakukan perubahan.
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-gray-600">Stok saat ini:</span>
+              <span className="font-semibold text-orange-600">{stock}</span>
+            </div>
+            <label className="block">
+              <span className="text-sm text-gray-600">Stok baru</span>
+              <input
+                type="number"
+                min="0"
+                value={stockInput}
+                onChange={(e) => setStockInput(e.target.value)}
+                className="mt-2 w-full rounded-2xl border border-orange-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm text-gray-600">Alasan perubahan <span className="text-gray-400">(opsional)</span></span>
+              <input
+                type="text"
+                value={stockReason}
+                onChange={(e) => setStockReason(e.target.value)}
+                placeholder="Mis: koreksi stok fisik, retur, dsb."
+                className="mt-2 w-full rounded-2xl border border-orange-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+              />
+            </label>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                disabled={stockLoading}
+                onClick={handleUpdateStock}
+                className="rounded-full bg-orange-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-50"
+              >
+                {stockLoading ? "Menyimpan..." : "Perbarui Stok"}
+              </button>
+            </div>
+          </div>
+
           <div className="flex justify-end">
             <button
               className="rounded-full cursor-pointer border border-orange-500 px-4 py-2 text-sm font-semibold text-orange-500 hover:text-white hover:bg-orange-600"
@@ -203,8 +271,7 @@ export default function EditProductPage() {
             >
               Tambah Harga
             </button>
-          </div>
-          {error.prices && (
+          </div>          {error.prices && (
             <p className="mt-2 text-xs text-red-500">{error.prices}</p>
           )}
           <div key={prices}>
