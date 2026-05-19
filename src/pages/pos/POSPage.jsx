@@ -128,6 +128,7 @@ export default function POSPage() {
     setSearchResults([])
     setBarcode('')
     setScanError('')
+    setScanQty('1')
   }
 
   const handleSelectProduct = (product) => {
@@ -140,7 +141,7 @@ export default function POSPage() {
     const available = Number(product.stock) || 0
     const needed = qty
     if (available < needed) {
-      setScanError(`Stok tidak cukup. Stok tersedia: ${formatNumberId(Number(product.stock) || 0)}`)
+      notification('Stok tidak cukup', `Stok tersedia: ${formatNumberId(available)}`, 'error')
       return
     }
     if (product.prices.length > 1) {
