@@ -1,36 +1,52 @@
-import { useState, useEffect, useRef } from 'react'
-import { X } from 'lucide-react'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { X, Plus, Trash2 } from 'lucide-react'
 import { formatNumberId, formatRupiah, parseNumberInput } from '../../utils/format'
 import { printReceipt, printReceiptQZ, findQzPrinters, isQzLoaded } from '../../utils/receipt'
-import { createTransaction } from '../../services/transactionService'
+import { createTransaction, PAYMENT_METHODS } from '../../services/transactionService'
 import { notification } from '../../utils/toast'
 import { useAuthStore } from '../../store/authStore'
 import { STORE_NAME, STORE_ADDRESS, STORE_PHONE } from '../../constants/store'
 
-const PAYMENT_METHODS = ['Tunai', 'QRIS', 'Kartu Debit']
-
 export default function CheckoutModal({ total, items = [], mode = 'sale', onClose, onSuccess }) {
-  const [method, setMethod] = useState('Tunai')
-  const [cash, setCash] = useState('')
-  const [cashDraft, setCashDraft] = useState(null)
+  // payments array: { method, amount, tendered, reference }
+  const [payments, setPayments] = useState([
+    { method: 'Tunai', amount: total, tendered: '', reference: '' },
+  ])
   const [loading, setLoading] = useState(false)
   const [qzStatus, setQzStatus] = useState('loading')
   const [printerName, setPrinterName] = useState('BSC10')
   const user = useAuthStore((s) => s.user)
-  const cashRef = useRef(null)
+  const firstInputRef = useRef(null)
 
-  const cashNum = parseNumberInput(cashDraft ?? cash)
-  const change = cashNum - total
-
-  // Autofocus input uang tunai saat metode Tunai dipilih
+  // Sync amount when total or row count changes
   useEffect(() => {
-    if (method === 'Tunai') {
-      const t = setTimeout(() => cashRef.current?.focus(), 50)
-      return () => clearTimeout(t)
-    }
-  }, [method])
+    setPayments((prev) =>
+      prev.length === 1 ? [{ ...prev[0], amount: total }] : prev,
+    )
+  }, [total])
 
-  // Shortcut keyboard checkout
+  const paidTotal = useMemo(
+    () =>
+      payments.reduce(
+        (s, p) => s + (Number(parseNumberInput(p.amount)) || 0),
+        0,
+      ),
+    [payments],
+  )
+  const cashRow = payments.find((p) => p.method === 'Tunai')
+  const cashAmount = cashRow ? Number(parseNumberInput(cashRow.amount)) || 0 : 0
+  const change = Math.max(0, paidTotal - total)
+  const balanceLeft = total - paidTotal
+
+  const canPay =
+    paidTotal >= total &&
+    payments.every((p) => Number(parseNumberInput(p.amount)) > 0)
+
+  useEffect(() => {
+    const t = setTimeout(() => firstInputRef.current?.focus(), 50)
+    return () => clearTimeout(t)
+  }, [])
+
   useEffect(() => {
     const handler = (e) => {
       if (e.key === 'Escape') {
@@ -38,20 +54,8 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
         if (!loading) onClose()
         return
       }
-      // Pintasan metode pembayaran 1-4 (saat tidak fokus pada input uang)
-      const tag = (e.target?.tagName || '').toLowerCase()
-      const isInput = tag === 'input' || tag === 'textarea'
-      if (!isInput && ['1', '2', '3'].includes(e.key)) {
-        const idx = Number(e.key) - 1
-        if (PAYMENT_METHODS[idx]) {
-          e.preventDefault()
-          setMethod(PAYMENT_METHODS[idx])
-        }
-        return
-      }
       if (e.key === 'Enter') {
-        const disabled = loading || (method === 'Tunai' && cashNum < total)
-        if (!disabled) {
+        if (canPay && !loading) {
           e.preventDefault()
           handlePay()
         }
@@ -60,14 +64,10 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [method, cashNum, total, loading])
+  }, [canPay, loading])
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
-      setQzStatus('noqz')
-      return
-    }
-    if (!isQzLoaded()) {
+    if (typeof window === 'undefined' || !isQzLoaded()) {
       setQzStatus('noqz')
       return
     }
@@ -76,23 +76,50 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
         if (printers?.length > 0) {
           setPrinterName(printers[0])
           setQzStatus('ready')
-        } else {
-          setQzStatus('no-printer')
-        }
+        } else setQzStatus('no-printer')
       })
-      .catch((error) => {
-        console.warn('QZ Tray connect failed:', error)
-        setQzStatus('error')
-      })
+      .catch(() => setQzStatus('error'))
   }, [])
 
+  const updateRow = (idx, patch) => {
+    setPayments((prev) => prev.map((p, i) => (i === idx ? { ...p, ...patch } : p)))
+  }
+
+  const addRow = () => {
+    if (payments.length >= PAYMENT_METHODS.length) return
+    const used = new Set(payments.map((p) => p.method))
+    const next = PAYMENT_METHODS.find((m) => !used.has(m)) || PAYMENT_METHODS[0]
+    const remaining = Math.max(0, total - paidTotal)
+    setPayments((prev) => [
+      ...prev,
+      { method: next, amount: remaining, tendered: '', reference: '' },
+    ])
+  }
+
+  const removeRow = (idx) => {
+    setPayments((prev) =>
+      prev.length === 1 ? prev : prev.filter((_, i) => i !== idx),
+    )
+  }
+
   async function handlePay() {
-    if (method === 'Tunai' && cashNum < total) return
+    if (!canPay) return
     setLoading(true)
     try {
+      const payloadPayments = payments.map((p) => {
+        const amount = Number(parseNumberInput(p.amount)) || 0
+        return {
+          method: p.method,
+          amount,
+          tendered: amount,
+          ...(p.reference ? { reference: p.reference } : {}),
+        }
+      })
+
       const payload = {
-        paymentMethod: method,
-        cashAmount: method === 'Tunai' ? cashNum : total,
+        payments: payloadPayments,
+        paymentMethod: payments.length > 1 ? 'SPLIT' : payments[0].method,
+        cashAmount: cashAmount,
         transactionDetails: items.map((it) => ({
           productId: it.id,
           priceName: it.priceName || it.priceLabel || 'Default',
@@ -122,16 +149,17 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
         })),
         subtotal: total,
         total,
-        paymentMethod: method,
-        cash: method === 'Tunai' ? cashNum : total,
-        change: method === 'Tunai' ? Math.max(0, cashNum - total) : 0,
+        paymentMethod:
+          payments.length > 1 ? 'Split Payment' : payments[0].method,
+        payments: payloadPayments,
+        cash: cashAmount,
+        change: Math.max(0, change),
       }
 
       if (qzStatus === 'ready') {
         try {
           await printReceiptQZ(receiptData, printerName)
-        } catch (printError) {
-          console.error('QZ Tray print error:', printError)
+        } catch {
           printReceipt(receiptData)
         }
       } else {
@@ -150,7 +178,7 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl">
+      <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
           <h3 className="font-bold text-gray-800 text-lg">Pembayaran</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
@@ -159,77 +187,145 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
         </div>
 
         <div className="px-6 py-4 space-y-4">
-          {/* Total */}
           <div className="bg-indigo-50 rounded-xl p-4 text-center">
-            <p className="text-sm text-gray-500">{mode === 'return' ? 'Total Retur' : 'Total Tagihan'}</p>
-            <p className="text-3xl font-bold text-indigo-600 mt-1">{formatRupiah(total)}</p>
+            <p className="text-sm text-gray-500">
+              {mode === 'return' ? 'Total Retur' : 'Total Tagihan'}
+            </p>
+            <p className="text-3xl font-bold text-indigo-600 mt-1">
+              {formatRupiah(total)}
+            </p>
           </div>
 
-          {/* Metode */}
-          <div>
-            <p className="text-sm font-medium text-gray-700 mb-2">Metode Pembayaran</p>
-            <div className="grid grid-cols-2 gap-2">
-              {PAYMENT_METHODS.map((m, i) => (
-                <button
-                  key={m}
-                  onClick={() => setMethod(m)}
-                  className={`relative py-2 rounded-lg text-sm font-medium border transition-colors ${
-                    method === m
-                      ? 'border-indigo-600 bg-indigo-50 text-indigo-600'
-                      : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  <span className="absolute left-2 top-1 text-[10px] font-bold text-gray-400">{i + 1}</span>
-                  {m}
-                </button>
-              ))}
+          <div className="grid grid-cols-3 gap-2 text-center text-xs">
+            <div className="rounded-lg bg-gray-50 p-2">
+              <p className="text-gray-500">Dibayar</p>
+              <p className="font-semibold text-gray-800">
+                {formatRupiah(paidTotal)}
+              </p>
+            </div>
+            <div className="rounded-lg bg-gray-50 p-2">
+              <p className="text-gray-500">{balanceLeft >= 0 ? 'Sisa' : 'Lebih'}</p>
+              <p
+                className={`font-semibold ${
+                  Math.abs(balanceLeft) < 0.01
+                    ? 'text-green-600'
+                    : balanceLeft > 0
+                      ? 'text-orange-600'
+                      : 'text-red-600'
+                }`}
+              >
+                {formatRupiah(Math.abs(balanceLeft))}
+              </p>
+            </div>
+            <div className="rounded-lg bg-gray-50 p-2">
+              <p className="text-gray-500">Kembalian</p>
+              <p
+                className={`font-semibold ${
+                  change >= 0 ? 'text-green-600' : 'text-red-600'
+                }`}
+              >
+                {formatRupiah(Math.max(0, change))}
+              </p>
             </div>
           </div>
 
-          {/* Uang tunai */}
-          {method === 'Tunai' && (
-            <div>
-              <label className="text-sm font-medium text-gray-700 mb-1 block">
-                Uang Tunai
-              </label>
-              <input
-                ref={cashRef}
-                type="text"
-                value={cashDraft ?? cash}
-                onFocus={() => {
-                  const raw = parseNumberInput(cash)
-                  setCashDraft(raw > 0 ? String(raw) : '')
-                }}
-                onChange={(e) => {
-                  setCashDraft(e.target.value)
-                }}
-                onBlur={(e) => {
-                  const next = parseNumberInput(e.target.value)
-                  setCash(next > 0 ? formatNumberId(next, { maximumFractionDigits: 0 }) : '')
-                  setCashDraft(null)
-                }}
-                placeholder="Masukkan jumlah uang"
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              {cashNum > 0 && (
-                <p className={`text-sm mt-1 ${change >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                  {change >= 0
-                    ? `Kembalian: ${formatRupiah(change)}`
-                    : `Kurang: ${formatRupiah(Math.abs(change))}`}
-                </p>
-              )}
-            </div>
+          <div className="space-y-3">
+            {payments.map((p, idx) => (
+              <div
+                key={idx}
+                className="rounded-xl border border-gray-200 p-3 space-y-2 bg-white"
+              >
+                <div className="flex items-center gap-2">
+                  <select
+                    value={p.method}
+                    onChange={(e) => updateRow(idx, { method: e.target.value })}
+                    className="flex-1 rounded-lg border border-gray-200 px-2 py-1.5 text-sm"
+                  >
+                    {PAYMENT_METHODS.map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                  {payments.length > 1 && (
+                    <button
+                      onClick={() => removeRow(idx)}
+                      className="rounded-lg p-1.5 text-red-500 hover:bg-red-50"
+                      title="Hapus baris"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
+                <div className={`grid gap-2 ${p.method === 'Tunai' ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                  <label className="block">
+                    <span className="text-[11px] font-medium text-gray-500">
+                      Uang Diterima
+                    </span>
+                    <input
+                      ref={idx === 0 ? firstInputRef : null}
+                      type="text"
+                      value={
+                        typeof p.amount === 'number'
+                          ? formatNumberId(p.amount, { maximumFractionDigits: 0 })
+                          : p.amount
+                      }
+                      onChange={(e) => updateRow(idx, { amount: e.target.value })}
+                      onBlur={(e) => {
+                        const n = parseNumberInput(e.target.value)
+                        updateRow(idx, { amount: n })
+                      }}
+                      className="w-full mt-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm"
+                    />
+                  </label>
+                  {p.method !== 'Tunai' && (
+                    <label className="block">
+                      <span className="text-[11px] font-medium text-gray-500">
+                        No. Referensi (opsional)
+                      </span>
+                      <input
+                        type="text"
+                        value={p.reference}
+                        onChange={(e) =>
+                          updateRow(idx, { reference: e.target.value })
+                        }
+                        placeholder="No. approval / EDC / TRX"
+                        className="w-full mt-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm"
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {payments.length < PAYMENT_METHODS.length && (
+            <button
+              onClick={addRow}
+              className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-dashed border-indigo-300 px-3 py-2 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
+            >
+              <Plus size={14} /> Tambah Metode Pembayaran (Split)
+            </button>
           )}
         </div>
 
         <div className="px-6 pb-6">
           <button
             onClick={handlePay}
-            disabled={loading || (method === 'Tunai' && cashNum < total)}
+            disabled={loading || !canPay}
             className="w-full py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Memproses...' : mode === 'return' ? 'Proses Retur' : 'Bayar Sekarang (Enter)'}
+            {loading
+              ? 'Memproses...'
+              : mode === 'return'
+                ? 'Proses Retur'
+                : 'Bayar Sekarang (Enter)'}
           </button>
+          {!canPay && (
+            <p className="text-center text-xs text-gray-500 mt-2">
+              {'Total pembayaran harus sama dengan atau melebihi tagihan.'}
+            </p>
+          )}
         </div>
       </div>
     </div>

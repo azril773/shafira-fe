@@ -20,7 +20,7 @@ export async function getProducts() {
     };
   }
 }
-export async function createProduct({ name, barcode, category, prices, uomId }) {
+export async function createProduct({ name, barcode, category, prices, uomId, hpp }) {
   try {
     const response = await api.post("/products", {
       name,
@@ -28,6 +28,7 @@ export async function createProduct({ name, barcode, category, prices, uomId }) 
       category,
       ...(prices ? { prices } : {}),
       ...(uomId ? { uomId } : {}),
+      ...(hpp !== undefined ? { hpp: Number(hpp) } : {}),
     });
     return { data: response.data, error: "" };
   } catch (error) {
@@ -37,7 +38,7 @@ export async function createProduct({ name, barcode, category, prices, uomId }) 
     };
   }
 }
-export async function updateProduct({id, name, barcode, category, prices, uomId }) {
+export async function updateProduct({id, name, barcode, category, prices, uomId, hpp }) {
   try {
     const response = await api.put(`/products/${id}`, {
       name,
@@ -45,6 +46,7 @@ export async function updateProduct({id, name, barcode, category, prices, uomId 
       category,
       ...(prices ? { prices } : {}),
       uomId: uomId ?? null,
+      ...(hpp !== undefined ? { hpp: Number(hpp) } : {}),
     });
     return { data: response.data, error: "" };
   } catch (error) {

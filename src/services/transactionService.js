@@ -67,3 +67,38 @@ export async function refundTransaction(id, { items, reason, verifierUsername, v
     return { data: null, error: getErrorMessage(error) };
   }
 }
+
+export async function getXReport({ from, to, paymentMethod, cashierId } = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (from) params.append("from", from);
+    if (to) params.append("to", to);
+    if (paymentMethod) params.append("paymentMethod", paymentMethod);
+    if (cashierId) params.append("cashierId", cashierId);
+    const response = await api.get(`/transactions/report/x?${params.toString()}`);
+    return { data: response.data, error: "" };
+  } catch (error) {
+    return { data: null, error: getErrorMessage(error) };
+  }
+}
+
+export async function getMarginReport({ from, to, category } = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (from) params.append("from", from);
+    if (to) params.append("to", to);
+    if (category) params.append("category", category);
+    const response = await api.get(`/transactions/report/margin?${params.toString()}`);
+    return { data: response.data, error: "" };
+  } catch (error) {
+    return { data: null, error: getErrorMessage(error) };
+  }
+}
+
+export const PAYMENT_METHODS = [
+  "Tunai",
+  "QRIS",
+  "Kartu Debit",
+  "Transfer",
+  "E-Wallet",
+];

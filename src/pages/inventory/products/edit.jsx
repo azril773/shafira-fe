@@ -20,6 +20,7 @@ export default function EditProductPage() {
   const [prices, setPrices] = useState([]);
   const [barcode, setBarcode] = useState("");
   const [uomId, setUomId] = useState("");
+  const [hpp, setHpp] = useState(0);
   const [uomList, setUomList] = useState([]);
   const [stock, setStock] = useState(0);
   const [stockInput, setStockInput] = useState("");
@@ -35,12 +36,20 @@ export default function EditProductPage() {
     setUomId(product.uomId || product.uom?.id || "");
     setStock(product.stock ?? 0);
     setStockInput(String(product.stock ?? 0));
+    setHpp(Number(product.hpp) || 0);
     const mainPrice = product.price || 0;
     const additionalPrices = product.prices || [];
     setPrices(
       product.prices.map((price) => ({
         name: price.name,
         price: price.price,
+        promoPrice: price.promoPrice ?? null,
+        promoStartDate: price.promoStartDate
+          ? String(price.promoStartDate).slice(0, 10)
+          : null,
+        promoEndDate: price.promoEndDate
+          ? String(price.promoEndDate).slice(0, 10)
+          : null,
       })) || [],
     );
   }, [product]);
@@ -105,6 +114,7 @@ export default function EditProductPage() {
         barcode,
         category,
         uomId: uomId || null,
+        hpp: Number(hpp) || 0,
         ...(prices ? { prices } : {}),
       });
       if (error.length > 0) {
@@ -214,6 +224,22 @@ export default function EditProductPage() {
                 </option>
               ))}
             </select>
+          </label>
+
+          <label className="block">
+            <span className="text-sm font-semibold text-gray-700">
+              HPP (Harga Pokok Penjualan)
+            </span>
+            <input
+              type="number"
+              min="0"
+              value={hpp}
+              onChange={(e) => setHpp(Number(e.target.value) || 0)}
+              className="mt-2 w-full rounded-3xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Dipakai untuk perhitungan margin penjualan.
+            </p>
           </label>
 
           {/* ─── Edit Stok ─── */}
@@ -341,6 +367,54 @@ export default function EditProductPage() {
                   >
                     Hapus Harga
                   </button>
+                </div>
+                <div className="sm:col-span-2 mt-2 rounded-2xl border border-orange-100 bg-orange-50/40 p-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <label className="block">
+                    <span className="text-xs font-medium text-gray-600">Harga Promo (opsional)</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={price.promoPrice ?? ""}
+                      onChange={(e) =>
+                        setPrices((prev) => {
+                          const np = [...prev];
+                          np[index].promoPrice = e.target.value === "" ? null : Number(e.target.value);
+                          return np;
+                        })
+                      }
+                      className="mt-1 w-full rounded-xl border border-orange-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium text-gray-600">Mulai Promo</span>
+                    <input
+                      type="date"
+                      value={price.promoStartDate || ""}
+                      onChange={(e) =>
+                        setPrices((prev) => {
+                          const np = [...prev];
+                          np[index].promoStartDate = e.target.value || null;
+                          return np;
+                        })
+                      }
+                      className="mt-1 w-full rounded-xl border border-orange-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium text-gray-600">Akhir Promo</span>
+                    <input
+                      type="date"
+                      value={price.promoEndDate || ""}
+                      onChange={(e) =>
+                        setPrices((prev) => {
+                          const np = [...prev];
+                          np[index].promoEndDate = e.target.value || null;
+                          return np;
+                        })
+                      }
+                      className="mt-1 w-full rounded-xl border border-orange-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                    />
+                  </label>
                 </div>
               </div>
             ))}

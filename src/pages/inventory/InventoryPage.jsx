@@ -34,6 +34,7 @@ const topNavItems = [
   { id: "users", label: "User", href: "/inventory/users" },
   { id: "audit-logs", label: "Audit Log", href: "/inventory/audit-logs" },
   { id: "reports", label: "Report", href: "/inventory/reports" },
+  { id: "promo-labels", label: "Label Promo", href: "/inventory/promo-labels" },
 ];
 
 const reportItems = [

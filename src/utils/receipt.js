@@ -64,6 +64,7 @@ export function formatReceiptText({
   subtotal = 0,
   total = 0,
   paymentMethod = 'Tunai',
+  payments = null,
   cash = 0,
   change = 0,
 }) {
@@ -104,10 +105,21 @@ export function formatReceiptText({
   // ===== TOTAL =====
   lines.push(lineLR('Subtotal', formatRupiah(subtotal)))
   lines.push(lineLR('Total', formatRupiah(total)))
-  lines.push(lineLR('Metode', paymentMethod))
-  if (paymentMethod === 'Tunai') {
-    lines.push(lineLR('Bayar', formatRupiah(cash)))
-    lines.push(lineLR('Kembali', formatRupiah(change)))
+  if (Array.isArray(payments) && payments.length > 1) {
+    lines.push(lineLR('Metode', 'Split Payment'))
+    payments.forEach((p) => {
+      lines.push(lineLR(`  ${p.method}`, formatRupiah(p.amount)))
+    })
+    const totalPaid = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+    const splitChange = totalPaid - (Number(total) || 0)
+    lines.push(lineLR('Uang Diterima', formatRupiah(totalPaid)))
+    lines.push(lineLR('Kembali', formatRupiah(splitChange > 0 ? splitChange : 0)))
+  } else {
+    lines.push(lineLR('Metode', paymentMethod))
+    if (paymentMethod === 'Tunai') {
+      lines.push(lineLR('Bayar', formatRupiah(cash)))
+      lines.push(lineLR('Kembali', formatRupiah(change)))
+    }
   }
   lines.push(dashedLine())
 
@@ -131,6 +143,7 @@ export function formatReceiptHtml({
   subtotal = 0,
   total = 0,
   paymentMethod = 'Tunai',
+  payments = null,
   cash = 0,
   change = 0,
 }) {
@@ -212,8 +225,23 @@ export function formatReceiptHtml({
           <table class="totals">
             <tr><td class="label">Subtotal</td><td class="right">${formatRupiah(subtotal)}</td></tr>
             <tr class="grand"><td class="label">Total</td><td class="right">${formatRupiah(total)}</td></tr>
-            <tr><td class="label">Metode</td><td class="right">${paymentMethod}</td></tr>
-            ${paymentMethod === 'Tunai' ? `<tr><td class="label">Bayar</td><td class="right">${formatRupiah(cash)}</td></tr><tr><td class="label">Kembali</td><td class="right">${formatRupiah(change)}</td></tr>` : ''}
+            <tr><td class="label">Metode</td><td class="right">${Array.isArray(payments) && payments.length > 1 ? 'Split Payment' : paymentMethod}</td></tr>
+            ${
+              Array.isArray(payments) && payments.length > 1
+                ? (() => {
+                    const methodRows = payments
+                      .map((p) => `<tr><td class="label" style="padding-left:8px">${p.method}</td><td class="right">${formatRupiah(p.amount)}</td></tr>`)
+                      .join('')
+                    const totalPaid = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+                    const splitChange = totalPaid - (Number(total) || 0)
+                    return methodRows +
+                      `<tr><td class="label">Uang Diterima</td><td class="right">${formatRupiah(totalPaid)}</td></tr>` +
+                      `<tr><td class="label">Kembali</td><td class="right">${formatRupiah(splitChange > 0 ? splitChange : 0)}</td></tr>`
+                  })()
+                : paymentMethod === 'Tunai'
+                  ? `<tr><td class="label">Bayar</td><td class="right">${formatRupiah(cash)}</td></tr><tr><td class="label">Kembali</td><td class="right">${formatRupiah(change)}</td></tr>`
+                  : ''
+            }
           </table>
 
           <hr class="divider" />
@@ -310,4 +338,102 @@ export async function printReceiptQZ(receiptData, printerName) {
   ]
 
   return qz.print(config, data)
+}
+
+// ====== X REPORT (compact thermal print) ======
+
+export function formatXReportText({
+  storeName = 'ShafiraMart',
+  storeAddress = '',
+  storePhone = '',
+  cashier = 'Kasir',
+  periodFrom = '',
+  periodTo = '',
+  printedAt = formatDateTime(),
+  totalTransactions = 0,
+  totalQty = 0,
+  totalSales = 0,
+  totalReceived = 0,
+  totalChange = 0,
+  byPaymentMethod = [],
+} = {}) {
+  const lines = []
+  lines.push(centerText(storeName))
+  if (storeAddress) lines.push(centerText(storeAddress))
+  if (storePhone) lines.push(centerText(`Telp: ${storePhone}`))
+  lines.push(dashedLine())
+  lines.push(centerText('LAPORAN X (RINGKASAN)'))
+  lines.push(dashedLine())
+  lines.push(lineLR('Kasir', cashier))
+  lines.push(lineLR('Periode', `${periodFrom || '—'} s/d ${periodTo || '—'}`))
+  lines.push(lineLR('Dicetak', printedAt))
+  lines.push(dashedLine())
+  lines.push(lineLR('Total Transaksi', formatNumberId(Number(totalTransactions) || 0)))
+  lines.push(lineLR('Total Qty', formatNumberId(Number(totalQty) || 0)))
+  lines.push(dashedLine())
+  lines.push(lineLR('TOTAL PENJUALAN', formatRupiah(Number(totalSales) || 0)))
+  lines.push(lineLR('Total Diterima', formatRupiah(Number(totalReceived) || 0)))
+  lines.push(lineLR('Total Kembalian', formatRupiah(Number(totalChange) || 0)))
+  if (Array.isArray(byPaymentMethod) && byPaymentMethod.length > 0) {
+    lines.push(dashedLine())
+    lines.push('Per Metode Pembayaran:')
+    for (const m of byPaymentMethod) {
+      lines.push(lineLR(`  ${m.method}`, formatRupiah(Number(m.amount) || 0)))
+    }
+  }
+  lines.push(dashedLine())
+  lines.push(centerText('-- bukan bukti pembayaran --'))
+  return lines.join('\n')
+}
+
+export async function printXReportQZ(reportData, printerName) {
+  const qz = await ensureQzConnected()
+  let printer = printerName
+  if (!printer) printer = await getDefaultQzPrinter()
+  if (!printer) throw new Error('Tidak ada printer yang tersedia.')
+
+  const text = formatXReportText(reportData)
+  const config = qz.configs.create(printer)
+  const data = [
+    {
+      type: 'raw',
+      format: 'plain',
+      data: '\x1B\x40' + text + '\n\n\n' + '\x1D\x56\x00',
+    },
+  ]
+  return qz.print(config, data)
+}
+
+// Fallback: render the X Report as a narrow (58mm) printable HTML via hidden iframe.
+export function printXReport(reportData) {
+  const text = formatXReportText(reportData)
+  const html = `<!doctype html><html><head><title>X Report</title>
+    <style>
+      @page { size: 58mm auto; margin: 2mm; }
+      body { font-family: 'Courier New', monospace; font-size: 11px; white-space: pre; margin: 0; padding: 4px; }
+    </style></head><body>${text.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))}</body></html>`
+  const iframe = document.createElement('iframe')
+  iframe.style.position = 'fixed'
+  iframe.style.left = '-9999px'
+  iframe.style.width = '1px'
+  iframe.style.height = '1px'
+  iframe.style.opacity = '0'
+  iframe.srcdoc = html
+  document.body.appendChild(iframe)
+  iframe.addEventListener(
+    'load',
+    () => {
+      const remove = () => {
+        if (iframe.parentNode) iframe.parentNode.removeChild(iframe)
+      }
+      try {
+        iframe.contentWindow?.focus()
+        iframe.contentWindow?.addEventListener('afterprint', remove, { once: true })
+        iframe.contentWindow?.print()
+      } catch {
+        setTimeout(remove, 1000)
+      }
+    },
+    { once: true },
+  )
 }

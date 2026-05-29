@@ -26,6 +26,7 @@ export default function ProductPage() {
   const [priceListText, setPriceListText] = useState("");
   const [uomList, setUomList] = useState([]);
   const [uomId, setUomId] = useState("");
+  const [hpp, setHpp] = useState(0);
 
   // Filter state
   const [filterName, setFilterName] = useState(nameParam || "");
@@ -130,6 +131,7 @@ export default function ProductPage() {
       category,
       prices,
       uomId: uomId || null,
+      hpp: Number(hpp) || 0,
     });
     if (error.length > 0) {
       toast.error(error);
@@ -141,6 +143,7 @@ export default function ProductPage() {
       setPrice({});
       setBarcode("");
       setUomId("");
+      setHpp(0);
       loadData();
       setRefresh(new Date().toISOString());
     }
@@ -288,6 +291,20 @@ export default function ProductPage() {
                       </p>
                       <p className="mt-2 font-semibold text-gray-900">
                         {formatRupiah(selectedItem.prices?.[0]?.price)}
+                      </p>
+                    </div>
+                    <div className="rounded-3xl bg-amber-50 p-3 sm:col-span-2">
+                      <p className="text-xs uppercase tracking-[0.2em] text-amber-600">
+                        Harga Beli (HPP)
+                      </p>
+                      <p className="mt-2 font-semibold text-gray-900">
+                        {formatRupiah(Number(selectedItem.hpp) || 0)}
+                      </p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Margin per unit: {formatRupiah(
+                          (Number(selectedItem.prices?.[0]?.price) || 0) -
+                            (Number(selectedItem.hpp) || 0),
+                        )}
                       </p>
                     </div>
                   </div>
@@ -477,6 +494,19 @@ export default function ProductPage() {
                       </option>
                     ))}
                   </select>
+                </label>
+                <label className="block">
+                  <span className="text-gray-600">HPP (Harga Pokok)</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={hpp}
+                    onChange={(e) => setHpp(Number(e.target.value) || 0)}
+                    className="mt-2 w-full rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Untuk perhitungan margin penjualan.
+                  </p>
                 </label>
                 <button
                   type="button"

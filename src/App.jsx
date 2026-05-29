@@ -19,6 +19,7 @@ import UsersPage from "./pages/inventory/users/users";
 import AuditLogPage from "./pages/inventory/audit/audit";
 import ReportsPage from "./pages/inventory/reports/reports";
 import PurchaseReturnsPage from "./pages/inventory/purchase-returns/returns";
+import PromoLabelsPage from "./pages/inventory/promo-labels/PromoLabelsPage";
 
 function PrivateRoute() {
   const { isAuthenticated, user, token } = useAuthStore();
@@ -75,6 +76,7 @@ function InventoryRoutes() {
         <Route path="users" element={<UsersPage />} />
         <Route path="audit-logs" element={<AuditLogPage />} />
         <Route path="reports" element={<ReportsPage />} />
+        <Route path="promo-labels" element={<PromoLabelsPage />} />
         <Route path="transactions" element={<InventoryTransactionsPage />} />
       </Route>
     </Routes>
