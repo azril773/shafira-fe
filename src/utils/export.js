@@ -51,7 +51,7 @@ export function exportToPdf(title, headers, rows) {
       <head>
         <title>${escapeHtml(title)}</title>
         <style>
-          body { font-family: Arial, sans-serif; padding: 24px; color: #111 }
+          body { font-family: sans-serif; padding: 24px; color: #111 }
           h1 { font-size: 22px; margin: 0 0 4px }
           .meta { color: #555; font-size: 12px; margin-bottom: 16px }
           table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 12px }
