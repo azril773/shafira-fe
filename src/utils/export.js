@@ -51,13 +51,32 @@ export function exportToPdf(title, headers, rows) {
       <head>
         <title>${escapeHtml(title)}</title>
         <style>
-          body { font-family: sans-serif; padding: 24px; color: #111 }
-          h1 { font-size: 22px; margin: 0 0 4px }
-          .meta { color: #555; font-size: 12px; margin-bottom: 16px }
-          table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 12px }
-          th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left }
-          th { background: #f7f7f7 }
-          td.r, th.r { text-align: right }
+          @media print {
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          }
+          * { box-sizing: border-box; }
+          body { font-family: Arial, Helvetica, sans-serif; padding: 28px 32px; color: #000; font-size: 13px; }
+          h1 { font-size: 20px; font-weight: bold; margin: 0 0 4px; }
+          .meta { color: #333; font-size: 11px; margin-bottom: 18px; border-bottom: 2px solid #000; padding-bottom: 10px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; }
+          th {
+            background: #222 !important;
+            color: #fff !important;
+            font-weight: bold;
+            padding: 8px 10px;
+            border: 1px solid #000;
+            text-align: left;
+            white-space: nowrap;
+          }
+          td {
+            padding: 7px 10px;
+            border: 1px solid #555;
+            vertical-align: top;
+          }
+          tbody tr:nth-child(even) td { background: #f0f0f0; }
+          tbody tr:nth-child(odd) td { background: #fff; }
+          td.r, th.r { text-align: right; }
+          tbody tr:last-child td { border-bottom: 2px solid #000; }
         </style>
       </head>
       <body>
@@ -66,10 +85,13 @@ export function exportToPdf(title, headers, rows) {
         <table>
           <thead>
             <tr>${headers
-              .map((header) => `<th>${escapeHtml(header)}</th>`)
+              .map((h, i) => {
+                const cls = typeof (rows[0]?.[h]) === 'number' ? ' class="r"' : ''
+                return `<th${cls}>${escapeHtml(h)}</th>`
+              })
               .join('')}</tr>
           </thead>
-          <tbody>${tableRows || `<tr><td colspan="${headers.length}" style="text-align:center;color:#999">Tidak ada data</td></tr>`}</tbody>
+          <tbody>${tableRows || `<tr><td colspan="${headers.length}" style="text-align:center;color:#666;padding:12px">Tidak ada data</td></tr>`}</tbody>
         </table>
         <script>window.onload = () => { setTimeout(() => { window.focus(); window.print(); }, 200); };</script>
       </body>
