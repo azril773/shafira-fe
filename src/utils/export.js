@@ -53,39 +53,29 @@ export function exportToPdf(title, headers, rows) {
         <style>
           @media print {
             body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            @page { margin: 16mm; }
           }
-          * { box-sizing: border-box; }
-          body { font-family: Arial, Helvetica, sans-serif; padding: 28px 32px; color: #000; font-size: 13px; }
-          h1 { font-size: 20px; font-weight: bold; margin: 0 0 4px; }
-          .meta { color: #333; font-size: 11px; margin-bottom: 18px; border-bottom: 2px solid #000; padding-bottom: 10px; }
-          table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; }
-          th {
-            background: #222 !important;
-            color: #fff !important;
-            font-weight: bold;
-            padding: 8px 10px;
-            border: 1px solid #000;
-            text-align: left;
-            white-space: nowrap;
-          }
-          td {
-            padding: 7px 10px;
-            border: 1px solid #555;
-            vertical-align: top;
-          }
-          tbody tr:nth-child(even) td { background: #f0f0f0; }
-          tbody tr:nth-child(odd) td { background: #fff; }
-          td.r, th.r { text-align: right; }
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body { font-family: sans-serif; padding: 24px; color: #000; font-size: 13px; }
+          h1 { font-size: 18px; font-weight: bold; margin-bottom: 4px; }
+          .meta { font-size: 11px; color: #333; margin-bottom: 8px; }
+          hr { border: 0; border-top: 1px dashed #000; margin: 10px 0; }
+          table { width: 100%; border-collapse: collapse; font-size: 12px; }
+          thead tr { border-bottom: 2px solid #000; }
+          th { font-weight: bold; padding: 6px 8px; text-align: left; border-bottom: 2px solid #000; }
+          td { padding: 5px 8px; border-bottom: 1px dashed #aaa; vertical-align: top; }
           tbody tr:last-child td { border-bottom: 2px solid #000; }
+          td.r, th.r { text-align: right; }
         </style>
       </head>
       <body>
         <h1>${escapeHtml(title)}</h1>
         <div class="meta">Dicetak: ${escapeHtml(printedAt)}</div>
+        <hr />
         <table>
           <thead>
             <tr>${headers
-              .map((h, i) => {
+              .map((h) => {
                 const cls = typeof (rows[0]?.[h]) === 'number' ? ' class="r"' : ''
                 return `<th${cls}>${escapeHtml(h)}</th>`
               })
