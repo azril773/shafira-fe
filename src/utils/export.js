@@ -62,8 +62,8 @@ export function exportToPdf(title, headers, rows) {
           hr { border: 0; border-top: 1px dashed #000; margin: 10px 0; }
           table { width: 100%; border-collapse: collapse; font-size: 12px; }
           thead tr { border-bottom: 2px solid #000; }
-          th { font-weight: bold; padding: 6px 8px; text-align: left; border-bottom: 2px solid #000; }
-          td { padding: 5px 8px; border-bottom: 1px dashed #aaa; vertical-align: top; }
+          th { font-weight: bold; padding: 6px 8px; text-align: left; border-bottom: 2px solid #000; color: #000; }
+          td { padding: 5px 8px; border-bottom: 1px solid #000; vertical-align: top; color: #000; }
           tbody tr:last-child td { border-bottom: 2px solid #000; }
           td.r, th.r { text-align: right; }
         </style>
