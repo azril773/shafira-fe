@@ -870,18 +870,24 @@ export default function ReportsPage() {
         .map((s) => `<div class="box"><div class="lbl">${esc(s.label)}</div><div class="val">${esc(String(s.value))}</div></div>`)
         .join("");
       const headersHtml = report.headers.map((h) => `<th>${esc(h)}</th>`).join("");
+      const formatCell = (h, v) => {
+        if (typeof v !== "number") return esc(String(v ?? ""));
+        const isMoney =
+          /Total|Harga|Subtotal|Nilai|Pendapatan|HPP|Margin|Diterima|Penjualan/i.test(h) &&
+          !/qty/i.test(h) &&
+          !/%/.test(h);
+        if (isMoney) return formatRupiahRaw(v);
+        if (/qty|stok|jumlah/i.test(h)) return formatNumberId(v);
+        return esc(String(v));
+      };
       const rowsHtml = report.rows
         .map(
           (row) =>
             `<tr>${report.headers
               .map((h) => {
                 const v = row[h];
-                const isNum = typeof v === "number";
-                const cls = isNum ? " class=\"r\"" : "";
-                const text = isNum && /Total|Penjualan|HPP|Margin|Pendapatan|Diterima|Harga/i.test(h)
-                  ? formatRupiahRaw(v)
-                  : esc(String(v ?? ""));
-                return `<td${cls}>${text}</td>`;
+                const cls = typeof v === "number" ? " class=\"r\"" : "";
+                return `<td${cls}>${formatCell(h, v)}</td>`;
               })
               .join("")}</tr>`,
         )
@@ -893,11 +899,8 @@ export default function ReportsPage() {
               if (i === 0) return `<td>${esc(gt.label)}</td>`;
               const v = gt.values?.[h];
               if (v === undefined || v === null || v === "") return `<td></td>`;
-              const isNum = typeof v === "number";
-              const text = isNum && /Total|Penjualan|HPP|Margin|Pendapatan|Diterima|Harga/i.test(h)
-                ? formatRupiahRaw(v)
-                : esc(String(v));
-              return `<td class="${isNum ? "r" : ""}">${text}</td>`;
+              const cls = typeof v === "number" ? "r" : "";
+              return `<td class="${cls}">${formatCell(h, v)}</td>`;
             })
             .join("")}</tr>`
         : "";
@@ -922,7 +925,7 @@ export default function ReportsPage() {
             h3 { font-size: 13px; margin: 16px 0 6px; border-bottom: 1px solid #ddd; padding-bottom: 2px; }
             .hdr { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #f97316; padding-bottom: 8px; }
             .hdr .meta { font-size: 11px; color: #555; text-align: right; }
-            .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+            .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; margin-bottom: 12px; }
             .box { border: 1px solid #f3d5b5; border-radius: 8px; padding: 8px 10px; background: #fff7ed; }
             .box.hi { background: #fed7aa; border-color: #fb923c; }
             .box .lbl { font-size: 10px; color: #92400e; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -1037,6 +1040,18 @@ export default function ReportsPage() {
 
       <div className="mt-6 flex flex-wrap items-end gap-3">
         <FilterBar activeId={activeId} filters={filters} setFilter={setFilter} products={products} />
+        {Object.values(filters).some((v) => v !== "" && v != null) && (
+          <button
+            type="button"
+            onClick={() => {
+              setFilters({});
+              setPage(1);
+            }}
+            className="rounded-full border border-orange-200 bg-white px-4 py-2 text-sm font-semibold text-orange-700 hover:bg-orange-50"
+          >
+            Reset Filter
+          </button>
+        )}
       </div>
 
       {report.summary.length > 0 && (
@@ -1050,7 +1065,8 @@ export default function ReportsPage() {
         </div>
       )}
 
-      <div className="mt-6 overflow-x-auto rounded-3xl border border-orange-100">
+      <div className="mt-8 border-t border-orange-100 pt-6">
+      <div className="overflow-x-auto rounded-3xl border border-orange-100">
         <table className="w-full min-w-[720px] text-left text-sm text-gray-600">
           <thead>
             <tr className="border-b border-orange-100 text-gray-500">
@@ -1091,8 +1107,16 @@ export default function ReportsPage() {
                   ))}
                 </tr>
               ))}
-            {!loading && report.grandTotal && report.rows.length > 0 && page === totalPages && (
-              <tr className="bg-orange-100 font-semibold text-gray-900">
+          </tbody>
+        </table>
+      </div>
+      </div>
+
+      {!loading && report.grandTotal && report.rows.length > 0 && (
+        <div className="mt-3 overflow-x-auto rounded-3xl border border-orange-200 bg-orange-50">
+          <table className="w-full min-w-[720px] text-left text-sm">
+            <tbody>
+              <tr className="font-semibold text-gray-900">
                 {report.headers.map((h, i) => (
                   <td key={h} className="px-4 py-3 whitespace-nowrap">
                     {i === 0
@@ -1109,10 +1133,13 @@ export default function ReportsPage() {
                   </td>
                 ))}
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            </tbody>
+          </table>
+          <p className="px-4 py-2 text-[11px] text-orange-600">
+            Grand total dihitung dari seluruh baris ({report.rows.length} baris), tidak terpengaruh halaman aktif.
+          </p>
+        </div>
+      )}
 
       {!loading && report.rows.length > 0 && (
         <div className="mt-4 flex flex-col items-center gap-3 sm:flex-row sm:justify-between">

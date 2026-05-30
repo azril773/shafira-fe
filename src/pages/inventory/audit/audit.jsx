@@ -153,7 +153,7 @@ export default function AuditLogPage() {
         </p>
       </div>
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-3">
+      <div className="mt-6 grid gap-3 sm:grid-cols-3 sm:items-end">
         <label className="block text-sm text-gray-600">
           Tipe
           <select
@@ -171,6 +171,20 @@ export default function AuditLogPage() {
             ))}
           </select>
         </label>
+        {action && (
+          <div>
+            <button
+              type="button"
+              onClick={() => {
+                setAction("");
+                setPage(1);
+              }}
+              className="rounded-full border border-orange-200 bg-white px-4 py-2 text-sm font-semibold text-orange-700 hover:bg-orange-50"
+            >
+              Reset Filter
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="mt-6 overflow-x-auto rounded-3xl border border-orange-100">

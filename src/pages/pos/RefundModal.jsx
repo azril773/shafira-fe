@@ -4,6 +4,7 @@ import { searchTransactions, refundTransaction } from '../../services/transactio
 import { formatRupiah, formatDate, formatNumberId, parseNumberInput } from '../../utils/format'
 import { notification } from '../../utils/toast'
 import AdminVerifyModal from '../../components/globals/AdminVerifyModal'
+import { backdropMouseDown } from '../../utils/modal'
 
 export default function RefundModal({ onClose, onSuccess }) {
   const [query, setQuery] = useState('')
@@ -14,6 +15,7 @@ export default function RefundModal({ onClose, onSuccess }) {
   const [qtyMap, setQtyMap] = useState({}) // { [detailId]: number }
   const [qtyDrafts, setQtyDrafts] = useState({})
   const [reason, setReason] = useState('')
+  const [reasonError, setReasonError] = useState(false)
   const [pendingRefund, setPendingRefund] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const queryRef = useRef(null)
@@ -106,7 +108,7 @@ export default function RefundModal({ onClose, onSuccess }) {
       return
     }
     if (!reason.trim()) {
-      notification('Gagal', 'Alasan retur wajib diisi.', 'error')
+      setReasonError(true)
       return
     }
     setPendingRefund(true)
@@ -148,7 +150,16 @@ export default function RefundModal({ onClose, onSuccess }) {
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        onMouseDown={backdropMouseDown(
+          () => {
+            if (selectedTrx) setSelectedTrx(null)
+            else onClose?.()
+          },
+          !pendingRefund && !submitting,
+        )}
+      >
         <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
           <div className="flex items-start justify-between px-5 py-4 border-b border-gray-100">
             <div className="flex items-center gap-3">
@@ -259,12 +270,13 @@ export default function RefundModal({ onClose, onSuccess }) {
                         const checked = detailIds.includes(d.id)
                         const refundQty = qtyMap[d.id] || d.qty
                         return (
-                        <tr key={d.id} className="border-b border-gray-50 hover:bg-orange-50/50">
+                        <tr key={d.id} onClick={() => toggleDetail(d.id, d.qty)} className="border-b border-gray-50 hover:bg-orange-50/50 cursor-pointer">
                           <td className="py-2">
                             <input
                               type="checkbox"
                               checked={checked}
                               onChange={() => toggleDetail(d.id, d.qty)}
+                              onClick={(e) => e.stopPropagation()}
                               className="h-4 w-4 accent-orange-500"
                             />
                           </td>
@@ -296,6 +308,7 @@ export default function RefundModal({ onClose, onSuccess }) {
                                 setQtyFor(d.id, e.target.value, d.qty)
                                 setQtyDrafts((prev) => { const s = { ...prev }; delete s[d.id]; return s })
                               }}
+                              onClick={(e) => e.stopPropagation()}
                               className="w-16 px-2 py-1 border border-gray-200 rounded text-right text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:bg-gray-50 disabled:text-gray-400"
                             />
                           </td>
@@ -313,11 +326,18 @@ export default function RefundModal({ onClose, onSuccess }) {
                 <label className="text-sm font-medium text-gray-700 mb-1 block">Alasan Retur</label>
                 <textarea
                   value={reason}
-                  onChange={(e) => setReason(e.target.value)}
+                  onChange={(e) => { setReason(e.target.value); setReasonError(false) }}
                   rows={2}
                   placeholder="Mis. produk rusak / salah pilih..."
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 ${
+                    reasonError
+                      ? 'border-red-400 focus:ring-red-300'
+                      : 'border-gray-200 focus:ring-orange-300'
+                  }`}
                 />
+                {reasonError && (
+                  <p className="mt-1 text-xs text-red-500">Alasan retur wajib diisi.</p>
+                )}
               </div>
               <div className="flex items-center justify-between gap-3 border-t border-gray-100 px-5 py-4">
                 <div className="text-sm space-y-0.5">

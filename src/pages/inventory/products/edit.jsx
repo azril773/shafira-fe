@@ -8,6 +8,8 @@ import {
 import { getUoms } from "../../../services/uomService";
 import { toast } from "react-toastify";
 import { validateBarcode } from "../../../utils/utils";
+import { formatNumberId, parseNumberInput } from "../../../utils/format";
+import PriceListEditor from "../../../components/globals/PriceListEditor";
 
 export default function EditProductPage() {
   const { id } = useParams();
@@ -231,10 +233,10 @@ export default function EditProductPage() {
               HPP (Harga Pokok Penjualan)
             </span>
             <input
-              type="number"
-              min="0"
-              value={hpp}
-              onChange={(e) => setHpp(Number(e.target.value) || 0)}
+              type="text"
+              inputMode="numeric"
+              value={formatNumberId(hpp || 0, { maximumFractionDigits: 0 })}
+              onChange={(e) => setHpp(parseNumberInput(e.target.value))}
               className="mt-2 w-full rounded-3xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
             />
             <p className="mt-1 text-xs text-gray-500">
@@ -286,138 +288,13 @@ export default function EditProductPage() {
             </div>
           </div>
 
-          <div className="flex justify-end">
-            <button
-              className="rounded-full cursor-pointer border border-orange-500 px-4 py-2 text-sm font-semibold text-orange-500 hover:text-white hover:bg-orange-600"
-              type="button"
-              onClick={() => {
-                if (prices.length >= 5) return;
-                setPrices((prev) => [...prices, { name: "", price: 0 }]);
-              }}
-            >
-              Tambah Harga
-            </button>
-          </div>          {error.prices && (
-            <p className="mt-2 text-xs text-red-500">{error.prices}</p>
-          )}
-          <div key={prices}>
-            {prices.map((price, index) => (
-              <div
-                key={index}
-                className="grid-cols-1 grid sm:grid-cols-2 gap-4"
-              >
-                <label className="block">
-                  <span className="text-gray-600">Nama Harga</span>
-                  <input
-                    type="text"
-                    defaultValue={price.name}
-                    onChange={(e) => {
-                      setError((prev) => {
-                        if (prev[`price.${index}.name`])
-                          delete prev[`price.${index}.name`];
-                        return { ...prev };
-                      });
-                      setPrices((prev) => {
-                        const newPrices = [...prev];
-                        newPrices[index].name = e.target.value;
-                        return newPrices;
-                      });
-                    }}
-                    className={`mt-2 w-full rounded-xl border ${error[`price.${index}.name`] ? "border-red-500 focus:ring-red-300" : "focus:ring-orange-300 border-orange-200"} bg-orange-50 px-3 py-2 focus:outline-none focus:ring-2`}
-                  />
-                  {error[`price.${index}.name`] && (
-                    <p className="mt-1 text-xs text-red-500">
-                      {error[`price.${index}.name`]}
-                    </p>
-                  )}
-                </label>
-                <label className="block">
-                  <span className="text-gray-600">Harga</span>
-                  <input
-                    type="number"
-                    min="0"
-                    defaultValue={price.price}
-                    onChange={(e) => {
-                      setError((prev) => {
-                        if (prev[`price.${index}.price`])
-                          delete prev[`price.${index}.price`];
-                        return { ...prev };
-                      });
-                      setPrices((prev) => {
-                        const newPrices = [...prev];
-                        newPrices[index].price = Number(e.target.value);
-                        return newPrices;
-                      });
-                    }}
-                    className={`mt-2 w-full rounded-xl border ${error[`price.${index}.price`] ? "border-red-500 focus:ring-red-300" : "focus:ring-orange-300 border-orange-200"} bg-orange-50 px-3 py-2 focus:outline-none focus:ring-2`}
-                  />
-                  {error[`price.${index}.price`] && (
-                    <p className="mt-1 text-xs text-red-500">
-                      {error[`price.${index}.price`]}
-                    </p>
-                  )}
-                </label>
-                <div className="flex items-center">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPrices((prev) => prices.filter((_, i) => i !== index));
-                    }}
-                    className="mt-4 rounded-full border border-red-500 px-4 py-2 text-sm font-semibold text-red-500 hover:text-white hover:bg-red-600"
-                  >
-                    Hapus Harga
-                  </button>
-                </div>
-                <div className="sm:col-span-2 mt-2 rounded-2xl border border-orange-100 bg-orange-50/40 p-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <label className="block">
-                    <span className="text-xs font-medium text-gray-600">Harga Promo (opsional)</span>
-                    <input
-                      type="number"
-                      min="0"
-                      value={price.promoPrice ?? ""}
-                      onChange={(e) =>
-                        setPrices((prev) => {
-                          const np = [...prev];
-                          np[index].promoPrice = e.target.value === "" ? null : Number(e.target.value);
-                          return np;
-                        })
-                      }
-                      className="mt-1 w-full rounded-xl border border-orange-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="text-xs font-medium text-gray-600">Mulai Promo</span>
-                    <input
-                      type="date"
-                      value={price.promoStartDate || ""}
-                      onChange={(e) =>
-                        setPrices((prev) => {
-                          const np = [...prev];
-                          np[index].promoStartDate = e.target.value || null;
-                          return np;
-                        })
-                      }
-                      className="mt-1 w-full rounded-xl border border-orange-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="text-xs font-medium text-gray-600">Akhir Promo</span>
-                    <input
-                      type="date"
-                      value={price.promoEndDate || ""}
-                      onChange={(e) =>
-                        setPrices((prev) => {
-                          const np = [...prev];
-                          np[index].promoEndDate = e.target.value || null;
-                          return np;
-                        })
-                      }
-                      className="mt-1 w-full rounded-xl border border-orange-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-                    />
-                  </label>
-                </div>
-              </div>
-            ))}
+          <div>
+            <PriceListEditor
+              prices={prices}
+              setPrices={setPrices}
+              error={error}
+              setError={setError}
+            />
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">

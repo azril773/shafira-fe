@@ -6,24 +6,20 @@ import { createTransaction, PAYMENT_METHODS } from '../../services/transactionSe
 import { notification } from '../../utils/toast'
 import { useAuthStore } from '../../store/authStore'
 import { STORE_NAME, STORE_ADDRESS, STORE_PHONE } from '../../constants/store'
+import { backdropMouseDown } from '../../utils/modal'
 
 export default function CheckoutModal({ total, items = [], mode = 'sale', onClose, onSuccess }) {
   // payments array: { method, amount, tendered, reference }
+  // Default amount sengaja kosong agar kasir mengisi sendiri uang yang diterima.
   const [payments, setPayments] = useState([
-    { method: 'Tunai', amount: total, tendered: '', reference: '' },
+    { method: 'Tunai', amount: '', tendered: '', reference: '' },
   ])
   const [loading, setLoading] = useState(false)
+  const [showChange, setShowChange] = useState(false)
   const [qzStatus, setQzStatus] = useState('loading')
   const [printerName, setPrinterName] = useState('BSC10')
   const user = useAuthStore((s) => s.user)
   const firstInputRef = useRef(null)
-
-  // Sync amount when total or row count changes
-  useEffect(() => {
-    setPayments((prev) =>
-      prev.length === 1 ? [{ ...prev[0], amount: total }] : prev,
-    )
-  }, [total])
 
   const paidTotal = useMemo(
     () =>
@@ -51,10 +47,12 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
     const handler = (e) => {
       if (e.key === 'Escape') {
         e.preventDefault()
+        if (showChange) { onSuccess(); return }
         if (!loading) onClose()
         return
       }
       if (e.key === 'Enter') {
+        if (showChange) { e.preventDefault(); onSuccess(); return }
         if (canPay && !loading) {
           e.preventDefault()
           handlePay()
@@ -64,7 +62,7 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canPay, loading])
+  }, [canPay, loading, showChange])
 
   useEffect(() => {
     if (typeof window === 'undefined' || !isQzLoaded()) {
@@ -89,10 +87,10 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
     if (payments.length >= PAYMENT_METHODS.length) return
     const used = new Set(payments.map((p) => p.method))
     const next = PAYMENT_METHODS.find((m) => !used.has(m)) || PAYMENT_METHODS[0]
-    const remaining = Math.max(0, total - paidTotal)
+    // Biarkan kosong agar kasir mengisi nominal sendiri.
     setPayments((prev) => [
       ...prev,
-      { method: next, amount: remaining, tendered: '', reference: '' },
+      { method: next, amount: '', tendered: '', reference: '' },
     ])
   }
 
@@ -167,7 +165,11 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
       }
 
       notification('Berhasil', `Transaksi ${trx.transactionNo} tersimpan.`, 'success')
-      onSuccess()
+      if (change > 0) {
+        setShowChange(true)
+      } else {
+        onSuccess()
+      }
     } catch (error) {
       console.error(error)
       notification('Gagal', 'Terjadi kesalahan saat memproses transaksi.', 'error')
@@ -177,7 +179,11 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+    <>
+    <div
+      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+      onMouseDown={backdropMouseDown(onClose, !loading)}
+    >
       <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
           <h3 className="font-bold text-gray-800 text-lg">Pembayaran</h3>
@@ -329,5 +335,24 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
         </div>
       </div>
     </div>
+
+    {showChange && (
+      <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-xs text-center">
+          <p className="text-sm text-gray-500 mb-1">Kembalian</p>
+          <p className="text-5xl font-bold text-green-600 mb-6">
+            {formatRupiah(change)}
+          </p>
+          <button
+            onClick={onSuccess}
+            autoFocus
+            className="w-full py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-colors"
+          >
+            OK (Enter)
+          </button>
+        </div>
+      </div>
+    )}
+    </>
   )
 }

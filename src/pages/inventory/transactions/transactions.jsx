@@ -1,8 +1,10 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Search, X, Calendar, Barcode, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react'
+import { Search, X, Calendar, Barcode, RotateCcw } from 'lucide-react'
+import PaginationTableNoLink from '../../../components/globals/pagination'
 import { searchTransactions } from '../../../services/transactionService'
 import { formatRupiah, formatDate, formatNumberId } from '../../../utils/format'
 import { notification } from '../../../utils/toast'
+import { useEscClose, backdropMouseDown } from '../../../utils/modal'
 
 const STATUS_OPTIONS = [
   { value: '', label: 'Semua Status' },
@@ -30,6 +32,8 @@ export default function InventoryTransactionsPage() {
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(false)
   const [selected, setSelected] = useState(null)
+
+  useEscClose(() => setSelected(null), !!selected)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -207,32 +211,19 @@ export default function InventoryTransactionsPage() {
         </div>
 
         {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-orange-50 text-sm">
-            <span className="text-gray-500">Halaman {page} dari {totalPages}</span>
-            <div className="flex items-center gap-2">
-              <button
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50"
-              >
-                <ChevronLeft size={14} /> Prev
-              </button>
-              <button
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50"
-              >
-                Next <ChevronRight size={14} />
-              </button>
-            </div>
-          </div>
-        )}
+        <PaginationTableNoLink
+          currentPage={page}
+          setCurrentPage={setPage}
+          totalPages={totalPages}
+        />
       </div>
 
       {/* Detail modal */}
       {selected && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onMouseDown={backdropMouseDown(() => setSelected(null))}
+        >
           <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
             <div className="flex items-start justify-between px-5 py-4 border-b border-gray-100">
               <div>
@@ -254,45 +245,80 @@ export default function InventoryTransactionsPage() {
                 <X size={20} />
               </button>
             </div>
-            <div className="px-5 py-4 max-h-[60vh] overflow-y-auto">
-              <table className="w-full text-sm">
-                <thead className="text-gray-500">
-                  <tr className="border-b border-gray-100">
-                    <th className="text-left py-2 font-medium">Produk</th>
-                    <th className="text-left py-2 font-medium">Barcode</th>
-                    <th className="text-right py-2 font-medium">Qty</th>
-                    <th className="text-right py-2 font-medium">Harga</th>
-                    <th className="text-right py-2 font-medium">Subtotal</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(selected.transactionDetails || []).map((d) => (
-                    <tr key={d.id} className={`border-b border-gray-50 ${d.isRefund ? 'bg-amber-50/40' : ''}`}>
-                      <td className="py-2 text-gray-700">
-                        <div className="flex items-center gap-2">
-                          <span className={d.isRefund ? 'line-through text-gray-400' : ''}>{d.historicalName}</span>
-                          {d.isRefund && (
-                            <span
-                              title={d.refundReason ? `Alasan: ${d.refundReason}` : 'Sudah diretur'}
-                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-200"
+            <div className="px-5 py-4 max-h-[60vh] overflow-y-auto space-y-4">
+              {(() => {
+                const normalItems = (selected.transactionDetails || []).filter((d) => !d.isRefund)
+                const refundedItems = (selected.transactionDetails || []).filter((d) => d.isRefund)
+                return (
+                  <>
+                    <table className="w-full text-sm">
+                      <thead className="text-gray-500">
+                        <tr className="border-b border-gray-100">
+                          <th className="text-left py-2 font-medium">Produk</th>
+                          <th className="text-left py-2 font-medium">Barcode</th>
+                          <th className="text-right py-2 font-medium">Qty</th>
+                          <th className="text-right py-2 font-medium">Harga</th>
+                          <th className="text-right py-2 font-medium">Subtotal</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {normalItems.length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="py-6 text-center text-sm text-gray-400">
+                              {refundedItems.length > 0 ? 'Semua item telah diretur.' : 'Tidak ada item dalam transaksi ini.'}
+                            </td>
+                          </tr>
+                        ) : normalItems.map((d) => (
+                          <tr key={d.id} className="border-b border-gray-50">
+                            <td className="py-2 text-gray-700">
+                              <div>{d.historicalName}</div>
+                              <div className="text-xs text-gray-400">{d.historicalPriceName}</div>
+                            </td>
+                            <td className="py-2 text-gray-600">{d.historicalBarcode}</td>
+                            <td className="py-2 text-right">{formatNumberId(d.qty)}{d.historicalUomCode ? ` ${d.historicalUomCode}` : ''}</td>
+                            <td className="py-2 text-right">{formatRupiah(d.historicalPrice)}</td>
+                            <td className="py-2 text-right font-semibold">{formatRupiah(Number(d.historicalPrice) * d.qty)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {refundedItems.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-amber-700 mb-1.5 flex items-center gap-1">
+                          <RotateCcw size={11} /> Item Diretur ({refundedItems.length})
+                        </p>
+                        <div className="space-y-2">
+                          {refundedItems.map((d) => (
+                            <div
+                              key={d.id}
+                              className="flex items-start justify-between gap-3 p-3 rounded-lg border border-amber-200 bg-amber-50"
                             >
-                              <RotateCcw size={10} /> Refunded
-                            </span>
-                          )}
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-amber-900">
+                                  {d.historicalName}{' '}
+                                  <span className="text-xs text-amber-700">({d.historicalPriceName})</span>
+                                </p>
+                                {d.historicalBarcode && (
+                                  <p className="text-xs text-amber-600 mt-0.5">{d.historicalBarcode}</p>
+                                )}
+                                <p className="text-xs text-amber-700 mt-0.5">
+                                  {formatNumberId(d.qty)}{d.historicalUomCode ? ` ${d.historicalUomCode}` : ''} x {formatRupiah(Number(d.historicalPrice))}
+                                </p>
+                                {d.refundReason && (
+                                  <p className="text-[11px] text-amber-700 mt-0.5">Alasan: {d.refundReason}</p>
+                                )}
+                              </div>
+                              <p className="text-sm font-semibold text-amber-800">
+                                {formatRupiah(Number(d.historicalPrice) * d.qty)}
+                              </p>
+                            </div>
+                          ))}
                         </div>
-                        <div className="text-xs text-gray-400">{d.historicalPriceName}</div>
-                        {d.isRefund && d.refundReason && (
-                          <div className="text-[11px] text-amber-700 mt-0.5">Alasan: {d.refundReason}</div>
-                        )}
-                      </td>
-                      <td className={`py-2 text-gray-600 ${d.isRefund ? 'line-through text-gray-400' : ''}`}>{d.historicalBarcode}</td>
-                      <td className={`py-2 text-right ${d.isRefund ? 'line-through text-gray-400' : ''}`}>{formatNumberId(d.qty)}{d.historicalUomCode ? ` ${d.historicalUomCode}` : ''}</td>
-                      <td className={`py-2 text-right ${d.isRefund ? 'line-through text-gray-400' : ''}`}>{formatRupiah(d.historicalPrice)}</td>
-                      <td className={`py-2 text-right font-semibold ${d.isRefund ? 'line-through text-gray-400' : ''}`}>{formatRupiah(Number(d.historicalPrice) * d.qty)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </div>
+                    )}
+                  </>
+                )
+              })()}
             </div>
             <div className="grid grid-cols-2 gap-3 border-t border-gray-100 px-5 py-4 text-sm">
               <div className="text-gray-500">Status</div>
@@ -303,6 +329,26 @@ export default function InventoryTransactionsPage() {
               </div>
               <div className="text-gray-500">Metode Pembayaran</div>
               <div className="text-right text-gray-700">{selected.paymentMethod}</div>
+              {Array.isArray(selected.payments) && selected.payments.length > 1 && (
+                <>
+                  <div className="text-gray-500">Rincian Pembayaran</div>
+                  <div className="text-right text-gray-700">
+                    <ul className="space-y-1">
+                      {selected.payments.map((p, i) => (
+                        <li key={i} className="flex items-center justify-end gap-2">
+                          <span className="rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-semibold text-orange-700">
+                            {p.method}
+                          </span>
+                          <span className="font-semibold">{formatRupiah(Number(p.amount) || 0)}</span>
+                          {p.reference && (
+                            <span className="text-[11px] text-gray-400">({p.reference})</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </>
+              )}
               <div className="text-gray-500">Total Qty</div>
               <div className="text-right text-gray-700">{formatNumberId(selected.totalQty)}</div>
               <div className="text-gray-500">Total</div>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ShieldAlert, X } from 'lucide-react'
 import { verifyAdminApi } from '../../services/auth'
+import { backdropMouseDown } from '../../utils/modal'
 
 export default function AdminVerifyModal({
   title = 'Verifikasi Admin',
@@ -57,7 +58,10 @@ export default function AdminVerifyModal({
   const iconBg = tone === 'red' ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
+      onMouseDown={backdropMouseDown(onCancel, !loading)}
+    >
       <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl">
         <div className="flex items-start justify-between px-5 pt-5">
           <div className="flex items-center gap-3">

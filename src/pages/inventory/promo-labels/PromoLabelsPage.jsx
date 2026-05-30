@@ -3,6 +3,15 @@ import { toast } from "react-toastify";
 import { Printer, RefreshCcw, Search, Tag } from "lucide-react";
 import { getProducts } from "../../../services/productService";
 import { formatRupiah } from "../../../utils/format";
+import { isPromoActive as isPromoActiveShared } from "../../../utils/promo";
+import PaginationTableNoLink from "../../../components/globals/pagination";
+
+const PAGE_SIZE = 10;
+const PROMO_FILTERS = [
+  { value: "all", label: "Semua", desc: "Tampilkan semua tipe harga" },
+  { value: "hasPromo", label: "Punya Promo", desc: "Yang memiliki harga promo (aktif/akan datang/lewat)" },
+  { value: "activePromo", label: "Promo Aktif", desc: "Hanya promo yang sedang berjalan" },
+];
 
 /**
  * Promo Label printing page.
@@ -18,8 +27,8 @@ export default function PromoLabelsPage() {
   const [selected, setSelected] = useState(new Set());
   const [columns, setColumns] = useState(3);
   const [labelsPerProduct, setLabelsPerProduct] = useState(1);
-  const [onlyActivePromo, setOnlyActivePromo] = useState(false);
-  const [onlyWithPromo, setOnlyWithPromo] = useState(false);
+  const [promoFilter, setPromoFilter] = useState("all");
+  const [page, setPage] = useState(1);
 
   const today = new Date();
 
@@ -38,14 +47,7 @@ export default function PromoLabelsPage() {
     loadProducts();
   }, []);
 
-  const isPromoActive = (price) => {
-    if (!price?.promoPrice || Number(price.promoPrice) <= 0) return false;
-    const start = price.promoStartDate ? new Date(price.promoStartDate) : null;
-    const end = price.promoEndDate ? new Date(price.promoEndDate) : null;
-    if (start && today < start) return false;
-    if (end && today > end) return false;
-    return true;
-  };
+  const isPromoActive = (price) => isPromoActiveShared(price, today);
 
   // Flatten product+price combinations (all price tiers). Promo is optional.
   const promoEntries = useMemo(() => {
@@ -54,8 +56,8 @@ export default function PromoLabelsPage() {
       for (const pr of p.prices || []) {
         const hasPromo = Number(pr.promoPrice || 0) > 0;
         const active = hasPromo && isPromoActive(pr);
-        if (onlyWithPromo && !hasPromo) continue;
-        if (onlyActivePromo && !active) continue;
+        if (promoFilter === "hasPromo" && !hasPromo) continue;
+        if (promoFilter === "activePromo" && !active) continue;
         entries.push({
           key: `${p.id}::${pr.id}`,
           productId: p.id,
@@ -83,7 +85,14 @@ export default function PromoLabelsPage() {
         )
       : entries;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [products, query, onlyActivePromo, onlyWithPromo]);
+  }, [products, query, promoFilter]);
+
+  // Pagination (client-side)
+  const totalPages = Math.max(1, Math.ceil(promoEntries.length / PAGE_SIZE));
+  useEffect(() => {
+    if (page > totalPages) setPage(1);
+  }, [page, totalPages]);
+  const pagedEntries = promoEntries.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const toggle = (key) => {
     setSelected((prev) => {
@@ -95,8 +104,15 @@ export default function PromoLabelsPage() {
   };
 
   const toggleAll = () => {
-    if (selected.size === promoEntries.length) setSelected(new Set());
-    else setSelected(new Set(promoEntries.map((e) => e.key)));
+    // Pilih/lepas semua entri pada halaman aktif saja agar selection antar halaman tetap terjaga.
+    const pageKeys = pagedEntries.map((e) => e.key);
+    const allSelected = pageKeys.length > 0 && pageKeys.every((k) => selected.has(k));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allSelected) pageKeys.forEach((k) => next.delete(k));
+      else pageKeys.forEach((k) => next.add(k));
+      return next;
+    });
   };
 
   const handlePrint = () => {
@@ -249,14 +265,17 @@ export default function PromoLabelsPage() {
         </div>
       </div>
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <label className="flex flex-col gap-1 text-xs text-gray-500">
           Cari
           <div className="relative">
             <Search size={14} className="absolute left-2 top-3 text-gray-400" />
             <input
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setPage(1);
+              }}
               placeholder="Nama / barcode / kategori..."
               className="w-full rounded-xl border border-orange-200 bg-white py-2 pl-7 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
             />
@@ -285,36 +304,51 @@ export default function PromoLabelsPage() {
             className="rounded-xl border border-orange-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
           />
         </label>
-        <label className="flex items-center gap-2 text-xs text-gray-700">
-          <input
-            type="checkbox"
-            checked={onlyWithPromo}
-            onChange={(e) => setOnlyWithPromo(e.target.checked)}
-            className="accent-orange-500"
-          />
-          Hanya yang punya promo
-        </label>
-        <label className="flex items-center gap-2 text-xs text-gray-700">
-          <input
-            type="checkbox"
-            checked={onlyActivePromo}
-            onChange={(e) => setOnlyActivePromo(e.target.checked)}
-            className="accent-orange-500"
-          />
-          Hanya promo yang sedang aktif
-        </label>
       </div>
 
-      <div className="mt-6 overflow-x-auto rounded-3xl border border-orange-100">
+      <div className="mt-4">
+        <p className="text-xs font-semibold uppercase tracking-wider text-orange-500">Filter Promo</p>
+        <div className="mt-2 inline-flex flex-wrap gap-1 rounded-full border border-orange-200 bg-orange-50 p-1">
+          {PROMO_FILTERS.map((f) => {
+            const active = promoFilter === f.value;
+            return (
+              <button
+                key={f.value}
+                type="button"
+                title={f.desc}
+                onClick={() => {
+                  setPromoFilter(f.value);
+                  setPage(1);
+                  setSelected(new Set());
+                }}
+                className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${
+                  active
+                    ? "bg-orange-500 text-white shadow-sm"
+                    : "text-orange-700 hover:bg-white"
+                }`}
+              >
+                {f.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="mt-8 border-t border-orange-100 pt-6">
+      <div className="overflow-x-auto rounded-3xl border border-orange-100">
         <table className="w-full text-sm">
           <thead className="bg-orange-50 text-xs uppercase tracking-wider text-orange-700">
             <tr>
               <th className="px-4 py-3 text-left">
                 <input
                   type="checkbox"
-                  checked={selected.size === promoEntries.length && promoEntries.length > 0}
+                  checked={
+                    pagedEntries.length > 0 &&
+                    pagedEntries.every((e) => selected.has(e.key))
+                  }
                   onChange={toggleAll}
                   className="accent-orange-500"
+                  title="Pilih semua di halaman ini"
                 />
               </th>
               <th className="px-4 py-3 text-left">Produk</th>
@@ -337,14 +371,20 @@ export default function PromoLabelsPage() {
             {!loading && promoEntries.length === 0 && (
               <tr>
                 <td colSpan={8} className="px-4 py-6 text-center text-gray-400">
-                  Tidak ada data harga produk. Tambahkan produk terlebih dahulu.
+                  Tidak ada data harga produk yang cocok dengan filter.
                 </td>
               </tr>
             )}
             {!loading &&
-              promoEntries.map((e) => (
-                <tr key={e.key} className="border-t border-orange-50 hover:bg-orange-50/30">
-                  <td className="px-4 py-3">
+              pagedEntries.map((e) => (
+                <tr
+                  key={e.key}
+                  onClick={() => toggle(e.key)}
+                  className={`cursor-pointer border-t border-orange-50 transition-colors hover:bg-orange-50/50 ${
+                    selected.has(e.key) ? "bg-orange-50" : ""
+                  }`}
+                >
+                  <td className="px-4 py-3" onClick={(ev) => ev.stopPropagation()}>
                     <input
                       type="checkbox"
                       checked={selected.has(e.key)}
@@ -382,6 +422,26 @@ export default function PromoLabelsPage() {
           </tbody>
         </table>
       </div>
+      </div>
+
+      {!loading && promoEntries.length > 0 && (
+        <div className="mt-4 flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+          <p className="text-xs text-gray-500">
+            Menampilkan {Math.min((page - 1) * PAGE_SIZE + 1, promoEntries.length)}–
+            {Math.min(page * PAGE_SIZE, promoEntries.length)} dari {promoEntries.length} baris
+            {selected.size > 0 && (
+              <span className="ml-2 rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-semibold text-orange-700">
+                {selected.size} dipilih
+              </span>
+            )}
+          </p>
+          <PaginationTableNoLink
+            currentPage={page}
+            setCurrentPage={setPage}
+            totalPages={totalPages}
+          />
+        </div>
+      )}
     </section>
   );
 }

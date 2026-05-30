@@ -1,11 +1,13 @@
-import { useEffect, useState } from "react";
-import { formatRupiah, formatNumberId } from "../../../utils/format";
+  import { useEffect, useState } from "react";
+import { formatRupiah, formatNumberId, parseNumberInput } from "../../../utils/format";
 import { createProduct, searchProduct } from "../../../services/productService";
 import { getUoms } from "../../../services/uomService";
 import { toast } from "react-toastify";
 import { validateBarcode } from "../../../utils/utils";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import PaginationTableNoLink from "../../../components/globals/pagination";
+import PriceListEditor from "../../../components/globals/PriceListEditor";
+import { isPromoActive } from "../../../utils/promo";
 
 export default function ProductPage() {
   const navigate = useNavigate();
@@ -246,6 +248,11 @@ export default function ProductPage() {
                           Multi Harga
                         </span>
                       )}
+                      {(item.prices || []).some(isPromoActive) && (
+                        <span className="ml-2 rounded-full bg-red-500 px-2 py-0.5 text-[11px] font-semibold text-white">
+                          Promo
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-gray-600">{item.uom?.code || "-"}</td>
                     <td className="px-4 py-3">{formatNumberId(item.stock)}</td>
@@ -315,9 +322,9 @@ export default function ProductPage() {
                       </p>
                       <ul className="mt-3 space-y-2 text-sm text-gray-700">
                         {selectedItem.prices.map((priceOption) => (
-                          <li key={priceOption.label}>
+                          <li key={priceOption.id ?? priceOption.name}>
                             <span className="font-semibold">
-                              {priceOption.label}:
+                              {priceOption.name}:
                             </span>{" "}
                             {formatRupiah(priceOption.price)}
                           </li>
@@ -393,76 +400,14 @@ export default function ProductPage() {
                     </p>
                   )}
                 </label>
-                <div className="flex justify-end">
-                  <button
-                    className="rounded-full cursor-pointer border border-orange-500 px-4 py-2 text-sm font-semibold text-orange-500 hover:text-white hover:bg-orange-600"
-                    type="button"
-                    onClick={() => {
-                      if (prices.length >= 5) return;
-                      setPrices((prev) => [...prices, { name: "", price: 0 }]);
-                    }}
-                  >
-                    Tambah Harga
-                  </button>
+                <div>
+                  <PriceListEditor
+                    prices={prices}
+                    setPrices={setPrices}
+                    error={error}
+                    setError={setError}
+                  />
                 </div>
-                {prices.map((price, index) => (
-                  <div
-                    key={index}
-                    className="grid-cols-1 grid sm:grid-cols-2 gap-4"
-                  >
-                    <label className="block">
-                      <span className="text-gray-600">Nama Harga</span>
-                      <input
-                        type="text"
-                        defaultValue={price.name}
-                        onChange={(e) => {
-                          setError((prev) => {
-                            if (prev[`price.${index}.name`])
-                              delete prev[`price.${index}.name`];
-                            return { ...prev };
-                          });
-                          setPrices((prev) => {
-                            const newPrices = [...prev];
-                            newPrices[index].name = e.target.value;
-                            return newPrices;
-                          });
-                        }}
-                        className={`mt-2 w-full rounded-xl border ${error[`price.${index}.name`] ? "border-red-500 focus:ring-red-300" : "focus:ring-orange-300 border-orange-200"} bg-orange-50 px-3 py-2 focus:outline-none focus:ring-2`}
-                      />
-                      {error[`price.${index}.name`] && (
-                        <p className="mt-1 text-xs text-red-500">
-                          {error[`price.${index}.name`]}
-                        </p>
-                      )}
-                    </label>
-                    <label className="block">
-                      <span className="text-gray-600">Harga</span>
-                      <input
-                        type="number"
-                        min="0"
-                        defaultValue={price.price}
-                        onChange={(e) => {
-                          setError((prev) => {
-                            if (prev[`price.${index}.price`])
-                              delete prev[`price.${index}.price`];
-                            return { ...prev };
-                          });
-                          setPrices((prev) => {
-                            const newPrices = [...prev];
-                            newPrices[index].price = Number(e.target.value);
-                            return newPrices;
-                          });
-                        }}
-                        className={`mt-2 w-full rounded-xl border ${error[`price.${index}.price`] ? "border-red-500 focus:ring-red-300" : "focus:ring-orange-300 border-orange-200"} bg-orange-50 px-3 py-2 focus:outline-none focus:ring-2`}
-                      />
-                      {error[`price.${index}.price`] && (
-                        <p className="mt-1 text-xs text-red-500">
-                          {error[`price.${index}.price`]}
-                        </p>
-                      )}
-                    </label>
-                  </div>
-                ))}
                 <label className="block">
                   <span className="text-gray-600">Barcode</span>
                   <input
@@ -498,10 +443,10 @@ export default function ProductPage() {
                 <label className="block">
                   <span className="text-gray-600">HPP (Harga Pokok)</span>
                   <input
-                    type="number"
-                    min="0"
-                    value={hpp}
-                    onChange={(e) => setHpp(Number(e.target.value) || 0)}
+                    type="text"
+                    inputMode="numeric"
+                    value={formatNumberId(hpp || 0, { maximumFractionDigits: 0 })}
+                    onChange={(e) => setHpp(parseNumberInput(e.target.value))}
                     className="mt-2 w-full rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300"
                   />
                   <p className="mt-1 text-xs text-gray-500">

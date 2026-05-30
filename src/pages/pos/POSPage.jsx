@@ -9,6 +9,8 @@ import { searchProduct, searchProductPOS } from '../../services/productService'
 import { notification } from '../../utils/toast'
 import AdminVerifyModal from '../../components/globals/AdminVerifyModal'
 import { createAuditLog } from '../../services/auditLogService'
+import { getEffectivePrice } from '../../utils/promo'
+import { backdropMouseDown } from '../../utils/modal'
 
 const SHORTCUTS = [
   { keys: 'F2', desc: 'Fokus scan barcode' },
@@ -74,6 +76,12 @@ export default function POSPage() {
 
   const itemTotal = items.reduce((sum, item) => sum + item.qty, 0)
   const total = getTotal()
+  const totalSavings = items.reduce((sum, item) => {
+    if (!item.isPromo) return sum
+    const original = Number(item.originalPrice ?? item.price) || 0
+    const current = Number(item.price) || 0
+    return sum + Math.max(0, (original - current) * (Number(item.qty) || 0))
+  }, 0)
 
   useEffect(() => {
     const el = cartScrollRef.current
@@ -108,15 +116,18 @@ export default function POSPage() {
   }
 
   const addCartItem = (product, qty, priceOption) => {
+    const eff = getEffectivePrice(priceOption)
     addItem(
       {
         id: product.id,
         name: product.name,
         category: product.category,
         barcode: product.barcode,
-        priceLabel: priceOption.name,
+        priceLabel: eff.isPromo ? `${priceOption.name} (Promo)` : priceOption.name,
         priceName: priceOption.name,
-        price: Number(priceOption.price),
+        price: eff.price,
+        originalPrice: eff.originalPrice,
+        isPromo: eff.isPromo,
         stock: Number(product.stock) || 0,
         uomId: product.uomId || product.uom?.id || null,
         uomCode: product.uom?.code || null,
@@ -632,10 +643,21 @@ export default function POSPage() {
                               <span>{product.category}</span>
                               <span>Stok: {formatNumberId(Number(product.stock) || 0)}</span>
                               {product.prices?.length === 1 ? (
-                                <span className="font-semibold text-gray-700">{formatRupiah(product.prices[0].price)}</span>
+                                (() => {
+                                  const eff = getEffectivePrice(product.prices[0])
+                                  return eff.isPromo ? (
+                                    <span className="inline-flex items-baseline gap-1.5">
+                                      <span className="font-semibold text-red-600">{formatRupiah(eff.price)}</span>
+                                      <span className="text-[10px] text-gray-400 line-through">{formatRupiah(eff.originalPrice)}</span>
+                                      <span className="rounded-full bg-red-500 px-1.5 py-0 text-[9px] font-bold text-white">PROMO</span>
+                                    </span>
+                                  ) : (
+                                    <span className="font-semibold text-gray-700">{formatRupiah(eff.price)}</span>
+                                  )
+                                })()
                               ) : product.prices?.length > 1 ? (
                                 <span className="rounded-full bg-orange-100 px-2 py-0.5 font-semibold text-orange-700">
-                                  Pilih Harga
+                                  {product.prices.some((p) => getEffectivePrice(p).isPromo) ? 'Pilih Harga (Ada Promo)' : 'Pilih Harga'}
                                 </span>
                               ) : null}
                             </div>
@@ -728,7 +750,16 @@ export default function POSPage() {
                               </div>
                             )}
                           </td>
-                          <td className="px-5 py-4 text-gray-600">{formatRupiah(item.price)}</td>
+                          <td className="px-5 py-4 text-gray-600">
+                            {item.isPromo ? (
+                              <div className="flex flex-col">
+                                <span className="font-semibold text-red-600">{formatRupiah(item.price)}</span>
+                                <span className="text-[11px] text-gray-400 line-through">{formatRupiah(item.originalPrice ?? item.price)}</span>
+                              </div>
+                            ) : (
+                              formatRupiah(item.price)
+                            )}
+                          </td>
                           <td className="px-5 py-4 text-right font-bold text-gray-800">{formatRupiah(item.price * item.qty)}</td>
                           <td className="px-5 py-4 text-right">
                             <button
@@ -749,7 +780,10 @@ export default function POSPage() {
           </div>
 
           {productSelection && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6"
+              onMouseDown={backdropMouseDown(() => setProductSelection(null))}
+            >
               <div className="w-full max-w-xl rounded-[32px] bg-white p-6 shadow-2xl">
                 <div className="flex items-start justify-between gap-4">
                   <div>
@@ -796,7 +830,10 @@ export default function POSPage() {
           )}
 
           {priceSelection && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6"
+              onMouseDown={backdropMouseDown(() => setPriceSelection(null))}
+            >
               <div className="w-full max-w-xl rounded-[32px] bg-white p-6 shadow-2xl">
                 <div className="flex items-start justify-between gap-4">
                   <div>
@@ -823,18 +860,33 @@ export default function POSPage() {
                     if (e.key === 'ArrowUp') { e.preventDefault(); btns[(idx - 1 + btns.length) % btns.length]?.focus() }
                   }}
                 >
-                  {priceSelection.product.prices.map((option) => (
-                    <button
-                      key={option.id || option.name}
-                      type="button"
-                      data-item
-                      onClick={() => handlePriceChoice(option)}
-                      className="w-full rounded-3xl border border-orange-200 bg-orange-50 px-4 py-4 text-left text-sm text-gray-700 hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-400"
-                    >
-                      <div className="font-semibold">{option.name}</div>
-                      <div className="mt-1 text-gray-500">{formatRupiah(Number(option.price))}</div>
-                    </button>
-                  ))}
+                  {priceSelection.product.prices.map((option) => {
+                    const eff = getEffectivePrice(option)
+                    return (
+                      <button
+                        key={option.id || option.name}
+                        type="button"
+                        data-item
+                        onClick={() => handlePriceChoice(option)}
+                        className="w-full rounded-3xl border border-orange-200 bg-orange-50 px-4 py-4 text-left text-sm text-gray-700 hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold">{option.name}</span>
+                          {eff.isPromo && (
+                            <span className="rounded-full bg-red-500 px-2 py-0.5 text-[11px] font-semibold text-white">PROMO</span>
+                          )}
+                        </div>
+                        {eff.isPromo ? (
+                          <div className="mt-1 flex items-baseline gap-2">
+                            <span className="text-base font-semibold text-red-600">{formatRupiah(eff.price)}</span>
+                            <span className="text-xs text-gray-400 line-through">{formatRupiah(eff.originalPrice)}</span>
+                          </div>
+                        ) : (
+                          <div className="mt-1 text-gray-500">{formatRupiah(eff.price)}</div>
+                        )}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             </div>
@@ -849,6 +901,12 @@ export default function POSPage() {
                     <span>Item Total</span>
                     <span className="font-semibold text-gray-900">{itemTotal}</span>
                   </div>
+                  {totalSavings > 0 && (
+                    <div className="flex justify-between gap-4 text-red-600">
+                      <span>Hemat dari Promo</span>
+                      <span className="font-semibold">- {formatRupiah(totalSavings)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between gap-4">
                     <span>Total Bayar</span>
                     <span className="font-semibold text-gray-900">{formatRupiah(total)}</span>
@@ -926,7 +984,10 @@ export default function POSPage() {
         </main>
 
         {showShortcuts && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6"
+            onMouseDown={backdropMouseDown(() => setShowShortcuts(false))}
+          >
             <div className="w-full max-w-md rounded-[32px] bg-white p-6 shadow-2xl">
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -997,7 +1058,10 @@ export default function POSPage() {
         )}
 
         {voidPicker && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6"
+            onMouseDown={backdropMouseDown(() => setVoidPicker(false))}
+          >
             <div className="w-full max-w-xl rounded-3xl bg-white p-6 shadow-2xl">
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -1040,7 +1104,10 @@ export default function POSPage() {
         )}
 
         {showSuspendPrompt && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6"
+            onMouseDown={backdropMouseDown(() => setShowSuspendPrompt(false))}
+          >
             <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -1087,7 +1154,10 @@ export default function POSPage() {
         )}
 
         {showSuspendList && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6"
+            onMouseDown={backdropMouseDown(() => setShowSuspendList(false))}
+          >
             <div className="w-full max-w-xl rounded-3xl bg-white p-6 shadow-2xl">
               <div className="flex items-start justify-between gap-4">
                 <div>

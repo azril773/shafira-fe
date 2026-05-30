@@ -5,6 +5,7 @@ import { searchTransactions } from '../../services/transactionService'
 import { notification } from '../../utils/toast'
 import { printReceipt } from '../../utils/receipt'
 import { STORE_NAME, STORE_ADDRESS, STORE_PHONE } from '../../constants/store'
+import { useEscClose, backdropMouseDown } from '../../utils/modal'
 
 export default function ReprintModal({ onClose }) {
   const [query, setQuery] = useState('')
@@ -12,6 +13,8 @@ export default function ReprintModal({ onClose }) {
   const [loading, setLoading] = useState(false)
   const [transactions, setTransactions] = useState([])
   const [includeAll, setIncludeAll] = useState(false)
+
+  useEscClose(onClose)
 
   const load = async () => {
     setLoading(true)
@@ -65,7 +68,10 @@ export default function ReprintModal({ onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6"
+      onMouseDown={backdropMouseDown(onClose)}
+    >
       <div className="w-full max-w-3xl rounded-[32px] bg-white p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div>
