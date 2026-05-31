@@ -97,6 +97,14 @@ function PriceCard({ index, price, error, onChange, onClearError, onRemove }) {
   const hasPromoData =
     price.promoPrice != null && price.promoPrice !== "" && Number(price.promoPrice) > 0;
   const [showPromo, setShowPromo] = useState(hasPromoData);
+  const [priceRaw, setPriceRaw] = useState(() =>
+    formatNumberId(price.price ?? 0, { maximumFractionDigits: 0 })
+  );
+  const [promoRaw, setPromoRaw] = useState(() =>
+    price.promoPrice != null && price.promoPrice !== ""
+      ? formatNumberId(price.promoPrice, { maximumFractionDigits: 0 })
+      : ""
+  );
 
   const promoActive = useMemo(() => isPromoActive(price), [price]);
 
@@ -104,6 +112,7 @@ function PriceCard({ index, price, error, onChange, onClearError, onRemove }) {
     if (showPromo) {
       // matikan promo dan kosongkan datanya
       onChange({ promoPrice: null, promoStartDate: null, promoEndDate: null });
+      setPromoRaw("");
       setShowPromo(false);
     } else {
       setShowPromo(true);
@@ -162,10 +171,15 @@ function PriceCard({ index, price, error, onChange, onClearError, onRemove }) {
           <input
             type="text"
             inputMode="numeric"
-            value={formatNumberId(price.price ?? 0, { maximumFractionDigits: 0 })}
+            value={priceRaw}
             onChange={(e) => {
+              setPriceRaw(e.target.value);
               onClearError(`price.${index}.price`);
               onChange({ price: parseNumberInput(e.target.value) });
+            }}
+            onBlur={() => {
+              const num = parseNumberInput(priceRaw);
+              setPriceRaw(formatNumberId(num, { maximumFractionDigits: 0 }));
             }}
             className={`mt-1 w-full rounded-xl border bg-orange-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 ${
               error[`price.${index}.price`]
@@ -210,16 +224,18 @@ function PriceCard({ index, price, error, onChange, onClearError, onRemove }) {
             <input
               type="text"
               inputMode="numeric"
-              value={
-                price.promoPrice == null || price.promoPrice === ""
-                  ? ""
-                  : formatNumberId(price.promoPrice, { maximumFractionDigits: 0 })
-              }
+              value={promoRaw}
               onChange={(e) => {
-                const raw = e.target.value
+                const raw = e.target.value;
+                setPromoRaw(raw);
                 onChange({
                   promoPrice: raw === "" ? null : parseNumberInput(raw),
-                })
+                });
+              }}
+              onBlur={() => {
+                if (promoRaw === "") return;
+                const num = parseNumberInput(promoRaw);
+                setPromoRaw(num ? formatNumberId(num, { maximumFractionDigits: 0 }) : "");
               }}
               className="mt-1 w-full rounded-xl border border-orange-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
             />

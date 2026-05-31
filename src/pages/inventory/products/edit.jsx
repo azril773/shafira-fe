@@ -23,6 +23,7 @@ export default function EditProductPage() {
   const [barcode, setBarcode] = useState("");
   const [uomId, setUomId] = useState("");
   const [hpp, setHpp] = useState(0);
+  const [hppRaw, setHppRaw] = useState("0");
   const [uomList, setUomList] = useState([]);
   const [stock, setStock] = useState(0);
   const [stockInput, setStockInput] = useState("");
@@ -38,7 +39,9 @@ export default function EditProductPage() {
     setUomId(product.uomId || product.uom?.id || "");
     setStock(product.stock ?? 0);
     setStockInput(String(product.stock ?? 0));
-    setHpp(Number(product.hpp) || 0);
+    const hppVal = Number(product.hpp) || 0;
+    setHpp(hppVal);
+    setHppRaw(formatNumberId(hppVal, { maximumFractionDigits: 0 }));
     const mainPrice = product.price || 0;
     const additionalPrices = product.prices || [];
     setPrices(
@@ -235,8 +238,15 @@ export default function EditProductPage() {
             <input
               type="text"
               inputMode="numeric"
-              value={formatNumberId(hpp || 0, { maximumFractionDigits: 0 })}
-              onChange={(e) => setHpp(parseNumberInput(e.target.value))}
+              value={hppRaw}
+              onChange={(e) => {
+                setHppRaw(e.target.value);
+                setHpp(parseNumberInput(e.target.value));
+              }}
+              onBlur={() => {
+                const num = parseNumberInput(hppRaw);
+                setHppRaw(formatNumberId(num, { maximumFractionDigits: 0 }));
+              }}
               className="mt-2 w-full rounded-3xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
             />
             <p className="mt-1 text-xs text-gray-500">

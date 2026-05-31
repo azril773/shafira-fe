@@ -29,6 +29,7 @@ export default function ProductPage() {
   const [uomList, setUomList] = useState([]);
   const [uomId, setUomId] = useState("");
   const [hpp, setHpp] = useState(0);
+  const [hppRaw, setHppRaw] = useState("0");
 
   // Filter state
   const [filterName, setFilterName] = useState(nameParam || "");
@@ -445,8 +446,15 @@ export default function ProductPage() {
                   <input
                     type="text"
                     inputMode="numeric"
-                    value={formatNumberId(hpp || 0, { maximumFractionDigits: 0 })}
-                    onChange={(e) => setHpp(parseNumberInput(e.target.value))}
+                    value={hppRaw}
+                    onChange={(e) => {
+                      setHppRaw(e.target.value);
+                      setHpp(parseNumberInput(e.target.value));
+                    }}
+                    onBlur={() => {
+                      const num = parseNumberInput(hppRaw);
+                      setHppRaw(formatNumberId(num, { maximumFractionDigits: 0 }));
+                    }}
                     className="mt-2 w-full rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300"
                   />
                   <p className="mt-1 text-xs text-gray-500">
