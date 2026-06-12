@@ -53,6 +53,68 @@ function formatQtyUom(qty, uomCode) {
   return uomCode ? `${q} ${uomCode}` : q
 }
 
+function getXReportPaymentTotals(totalSales, byPaymentMethod) {
+  const normalizedTotalSales = Number(totalSales) || 0
+  const methods = Array.isArray(byPaymentMethod) ? byPaymentMethod : []
+  const isTunaiMethod = (name) => {
+    const n = String(name || '').toLowerCase()
+    return n.includes('tunai') || n.includes('cash')
+  }
+  const isQrisMethod = (name) => String(name || '').toLowerCase().includes('qris')
+  const isDebetMethod = (name) => {
+    const n = String(name || '').toLowerCase()
+    return (
+      n.includes('debet') ||
+      n.includes('debit') ||
+      n.includes('kartu debit') ||
+      n.includes('transfer') ||
+      n.includes('e-wallet') ||
+      n.includes('ewallet')
+    )
+  }
+  const tunaiRaw = methods
+    .filter((method) => isTunaiMethod(method.method))
+    .reduce((sum, method) => sum + (Number(method.amount) || 0), 0)
+  const qrisRaw = methods
+    .filter((method) => isQrisMethod(method.method))
+    .reduce((sum, method) => sum + (Number(method.amount) || 0), 0)
+  const debetRaw = methods
+    .filter((method) => isDebetMethod(method.method))
+    .reduce((sum, method) => sum + (Number(method.amount) || 0), 0)
+  const knownReceived = tunaiRaw + qrisRaw + debetRaw
+
+  let tunai = tunaiRaw
+  let qris = qrisRaw
+  let debet = debetRaw
+  if (knownReceived > normalizedTotalSales && normalizedTotalSales > 0) {
+    // Overpay biasanya berasal dari Tunai (karena ada kembalian), jadi kurangi Tunai dulu.
+    let excess = knownReceived - normalizedTotalSales
+    const cutTunai = Math.min(excess, tunai)
+    tunai -= cutTunai
+    excess -= cutTunai
+    if (excess > 0) {
+      const cutQris = Math.min(excess, qris)
+      qris -= cutQris
+      excess -= cutQris
+    }
+    if (excess > 0) {
+      const cutDebet = Math.min(excess, debet)
+      debet -= cutDebet
+    }
+  }
+
+  if (normalizedTotalSales > 0 && tunai + qris + debet > normalizedTotalSales) {
+    tunai = Math.max(0, normalizedTotalSales - qris - debet)
+  }
+
+  return {
+    totalSales: normalizedTotalSales,
+    tunai,
+    qris,
+    debet,
+  }
+}
+
 export function formatReceiptText({
   storeName = 'ShafiraMart',
   storeAddress = '',
@@ -350,37 +412,25 @@ export function formatXReportText({
   periodFrom = '',
   periodTo = '',
   printedAt = formatDateTime(),
-  totalTransactions = 0,
-  totalQty = 0,
   totalSales = 0,
-  totalReceived = 0,
-  totalChange = 0,
   byPaymentMethod = [],
 } = {}) {
+  const paymentTotals = getXReportPaymentTotals(totalSales, byPaymentMethod)
   const lines = []
   lines.push(centerText(storeName))
   if (storeAddress) lines.push(centerText(storeAddress))
   if (storePhone) lines.push(centerText(`Telp: ${storePhone}`))
   lines.push(dashedLine())
-  lines.push(centerText('LAPORAN X (RINGKASAN)'))
+  lines.push(centerText('LAPORAN X'))
   lines.push(dashedLine())
   lines.push(lineLR('Kasir', cashier))
   lines.push(lineLR('Periode', `${periodFrom || '—'} s/d ${periodTo || '—'}`))
   lines.push(lineLR('Dicetak', printedAt))
   lines.push(dashedLine())
-  lines.push(lineLR('Total Transaksi', formatNumberId(Number(totalTransactions) || 0)))
-  lines.push(lineLR('Total Qty', formatNumberId(Number(totalQty) || 0)))
-  lines.push(dashedLine())
-  lines.push(lineLR('TOTAL PENJUALAN', formatRupiah(Number(totalSales) || 0)))
-  lines.push(lineLR('Total Diterima', formatRupiah(Number(totalReceived) || 0)))
-  lines.push(lineLR('Total Kembalian', formatRupiah(Number(totalChange) || 0)))
-  if (Array.isArray(byPaymentMethod) && byPaymentMethod.length > 0) {
-    lines.push(dashedLine())
-    lines.push('Per Metode Pembayaran:')
-    for (const m of byPaymentMethod) {
-      lines.push(lineLR(`  ${m.method}`, formatRupiah(Number(m.amount) || 0)))
-    }
-  }
+  lines.push(lineLR('TOTAL PENJUALAN', formatRupiah(paymentTotals.totalSales)))
+  lines.push(lineLR('Tunai', formatRupiah(paymentTotals.tunai)))
+  lines.push(lineLR('QRIS', formatRupiah(paymentTotals.qris)))
+  lines.push(lineLR('Debet', formatRupiah(paymentTotals.debet)))
   lines.push(dashedLine())
   lines.push(centerText('-- bukan bukti pembayaran --'))
   return lines.join('\n')
@@ -404,14 +454,87 @@ export async function printXReportQZ(reportData, printerName) {
   return qz.print(config, data)
 }
 
+export function formatXReportHtml({
+  storeName = 'ShafiraMart',
+  storeAddress = '',
+  storePhone = '',
+  cashier = 'Kasir',
+  periodFrom = '',
+  periodTo = '',
+  printedAt = formatDateTime(),
+  totalSales = 0,
+  byPaymentMethod = [],
+} = {}) {
+  const paymentTotals = getXReportPaymentTotals(totalSales, byPaymentMethod)
+
+  return `
+    <html>
+      <head>
+        <title>Laporan X</title>
+        <style>
+          body { font-family: sans-serif; margin: 0; padding: 0; }
+          .receipt { width: 80mm; padding: 8px; font-size: 14px; }
+          .center { text-align: center; }
+          .bold { font-weight: bold; }
+          .small { font-size: 13px; }
+          .right { text-align: right; }
+          .divider {
+            border: 0;
+            border-top: 1px dashed #000;
+            margin: 6px 0;
+          }
+          .header-name { font-size: 17px; font-weight: bold; }
+          table { width: 100%; border-collapse: collapse; }
+          td { padding: 1px 0; vertical-align: top; }
+          .totals td { padding: 2px 0; }
+          .totals .label { color: #333; }
+          .totals .grand { font-weight: bold; font-size: 15px; }
+          .footer { font-size: 11px; line-height: 1.4; }
+          @media print {
+            body { margin: 0; }
+            .receipt { box-shadow: none; }
+            @page { size: 80mm auto; margin: 0; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="receipt">
+          <div class="center header-name">${storeName}</div>
+          ${storeAddress ? `<div class="center small">${storeAddress}</div>` : ''}
+          ${storePhone ? `<div class="center small">Telp: ${storePhone}</div>` : ''}
+
+          <hr class="divider" />
+
+          <div class="center bold">LAPORAN X</div>
+
+          <hr class="divider" />
+
+          <table class="small">
+            <tr><td>Kasir</td><td class="right">${cashier}</td></tr>
+            <tr><td>Periode</td><td class="right">${periodFrom || '-'} s/d ${periodTo || '-'}</td></tr>
+            <tr><td>Dicetak</td><td class="right">${printedAt}</td></tr>
+          </table>
+
+          <hr class="divider" />
+
+          <table class="totals">
+            <tr class="grand"><td class="label">Total Penjualan</td><td class="right">${formatRupiah(paymentTotals.totalSales)}</td></tr>
+            <tr><td class="label">Tunai</td><td class="right">${formatRupiah(paymentTotals.tunai)}</td></tr>
+            <tr><td class="label">QRIS</td><td class="right">${formatRupiah(paymentTotals.qris)}</td></tr>
+            <tr><td class="label">Debet</td><td class="right">${formatRupiah(paymentTotals.debet)}</td></tr>
+          </table>
+
+          <hr class="divider" />
+
+          <div class="center footer">Bukan bukti pembayaran</div>
+        </div>
+      </body>
+    </html>`
+}
+
 // Fallback: render the X Report as a narrow (58mm) printable HTML via hidden iframe.
 export function printXReport(reportData) {
-  const text = formatXReportText(reportData)
-  const html = `<!doctype html><html><head><title>X Report</title>
-    <style>
-      @page { size: 58mm auto; margin: 2mm; }
-      body { font-family: 'Courier New', monospace; font-size: 11px; white-space: pre; margin: 0; padding: 4px; }
-    </style></head><body>${text.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))}</body></html>`
+  const html = formatXReportHtml(reportData)
   const iframe = document.createElement('iframe')
   iframe.style.position = 'fixed'
   iframe.style.left = '-9999px'
