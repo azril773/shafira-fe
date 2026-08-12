@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { X, Plus, Trash2 } from 'lucide-react'
+import { X, Plus, Printer, Trash2 } from 'lucide-react'
 import { formatNumberId, formatRupiah, parseNumberInput } from '../../utils/format'
 import { printReceipt, printReceiptQZ, findQzPrinters, isQzLoaded } from '../../utils/receipt'
 import { createTransaction, PAYMENT_METHODS } from '../../services/transactionService'
@@ -15,6 +15,7 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
     { method: 'Tunai', amount: '', tendered: '', reference: '' },
   ])
   const [loading, setLoading] = useState(false)
+  const [showPrintConfirmation, setShowPrintConfirmation] = useState(false)
   const [showChange, setShowChange] = useState(false)
   const [qzStatus, setQzStatus] = useState('loading')
   const [printerName, setPrinterName] = useState('BSC10')
@@ -48,11 +49,13 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
       if (e.key === 'Escape') {
         e.preventDefault()
         if (showChange) { onSuccess(); return }
+        if (showPrintConfirmation) { setShowPrintConfirmation(false); return }
         if (!loading) onClose()
         return
       }
       if (e.key === 'Enter') {
         if (showChange) { e.preventDefault(); onSuccess(); return }
+        if (showPrintConfirmation) return
         if (canPay && !loading) {
           e.preventDefault()
           handlePay()
@@ -62,7 +65,7 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canPay, loading, showChange])
+  }, [canPay, loading, showChange, showPrintConfirmation])
 
   useEffect(() => {
     if (typeof window === 'undefined' || !isQzLoaded()) {
@@ -100,8 +103,13 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
     )
   }
 
-  async function handlePay() {
+  function handlePay() {
     if (!canPay) return
+    setShowPrintConfirmation(true)
+  }
+
+  async function processPayment(shouldPrint) {
+    setShowPrintConfirmation(false)
     setLoading(true)
     try {
       const payloadPayments = payments.map((p) => {
@@ -154,14 +162,16 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
         change: Math.max(0, change),
       }
 
-      if (qzStatus === 'ready') {
-        try {
-          await printReceiptQZ(receiptData, printerName)
-        } catch {
+      if (shouldPrint) {
+        if (qzStatus === 'ready') {
+          try {
+            await printReceiptQZ(receiptData, printerName)
+          } catch {
+            printReceipt(receiptData)
+          }
+        } else {
           printReceipt(receiptData)
         }
-      } else {
-        printReceipt(receiptData)
       }
 
       notification('Berhasil', `Transaksi ${trx.transactionNo} tersimpan.`, 'success')
@@ -350,6 +360,44 @@ export default function CheckoutModal({ total, items = [], mode = 'sale', onClos
           >
             OK (Enter)
           </button>
+        </div>
+      </div>
+    )}
+
+    {showPrintConfirmation && (
+      <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 p-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="print-confirmation-title"
+          className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl"
+        >
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+            <Printer size={28} />
+          </div>
+          <h4 id="print-confirmation-title" className="text-lg font-bold text-gray-800">
+            Print struk transaksi?
+          </h4>
+          <p className="mt-2 text-sm text-gray-500">
+            Pilih apakah struk ingin dicetak setelah pembayaran berhasil.
+          </p>
+          <div className="mt-6 grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => processPayment(false)}
+              className="rounded-xl border border-gray-300 px-4 py-3 font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+            >
+              Tanpa Print
+            </button>
+            <button
+              type="button"
+              onClick={() => processPayment(true)}
+              autoFocus
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white transition-colors hover:bg-indigo-700"
+            >
+              <Printer size={18} /> Print Struk
+            </button>
+          </div>
         </div>
       </div>
     )}
