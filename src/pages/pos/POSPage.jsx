@@ -47,6 +47,7 @@ export default function POSPage() {
   const [showSuspendList, setShowSuspendList] = useState(false)
   const [showSuspendPrompt, setShowSuspendPrompt] = useState(false)
   const [suspendLabel, setSuspendLabel] = useState('')
+  const [suspendBusy, setSuspendBusy] = useState(false)
   // Draft text untuk input qty per row (biar separator dibentuk on blur, bukan tiap keystroke)
   const [cartQtyDrafts, setCartQtyDrafts] = useState({})
   const [activeSearchIndex, setActiveSearchIndex] = useState(-1)
@@ -59,8 +60,25 @@ export default function POSPage() {
   const priceSelectionRef = useRef(null)
   const cartScrollRef = useRef(null)
 
-  const { items, addItem, removeItem, updateQty, clearCart, getTotal, suspended, suspendCurrent, resumeSuspended, removeSuspended } =
-    useCartStore()
+  const {
+    items,
+    addItem,
+    removeItem,
+    updateQty,
+    clearCart,
+    getTotal,
+    suspended,
+    loadSuspended,
+    suspendCurrent,
+    resumeSuspended,
+    removeSuspended,
+  } = useCartStore()
+
+  useEffect(() => {
+    loadSuspended().then(({ error }) => {
+      if (error) notification('Gagal', error, 'error')
+    })
+  }, [loadSuspended])
 
   useEffect(() => {
     if (!productSelection) return
@@ -290,19 +308,47 @@ export default function POSPage() {
     setSuspendLabel('')
     setShowSuspendPrompt(true)
   }
-  const confirmSuspend = () => {
-    const entry = suspendCurrent(suspendLabel)
-    setShowSuspendPrompt(false)
+  const confirmSuspend = async () => {
+    if (suspendBusy) return
+    setSuspendBusy(true)
+    const { entry, error } = await suspendCurrent(suspendLabel)
+    setSuspendBusy(false)
+    if (error) {
+      notification('Gagal suspend', error, 'error')
+      return
+    }
     if (entry) {
+      setShowSuspendPrompt(false)
       notification('Suspend', `Transaksi ditahan: ${entry.label}`, 'success')
     }
   }
-  const handleResume = (id) => {
-    const ok = resumeSuspended(id)
-    if (ok) {
+  const handleResume = async (id) => {
+    if (suspendBusy) return
+    setSuspendBusy(true)
+    const { resumed, error } = await resumeSuspended(id)
+    setSuspendBusy(false)
+    if (error) {
+      notification('Gagal resume', error, 'error')
+      return
+    }
+    if (resumed) {
       setShowSuspendList(false)
       notification('Resume', 'Transaksi yang ditahan dipanggil kembali.', 'success')
     }
+  }
+  const handleRemoveSuspended = async (id) => {
+    if (suspendBusy) return
+    setSuspendBusy(true)
+    const { error } = await removeSuspended(id)
+    setSuspendBusy(false)
+    if (error) notification('Gagal menghapus suspend', error, 'error')
+  }
+  const openSuspendList = async () => {
+    setShowSuspendList(true)
+    setSuspendBusy(true)
+    const { error } = await loadSuspended()
+    setSuspendBusy(false)
+    if (error) notification('Gagal memuat suspend', error, 'error')
   }
 
   // Keyboard shortcuts
@@ -955,15 +1001,15 @@ export default function POSPage() {
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={handleSuspend}
-                      disabled={items.length === 0}
+                      disabled={items.length === 0 || suspendBusy}
                       title="Tahan transaksi"
                       className="inline-flex items-center justify-center gap-1 rounded-full border border-white/30 bg-white/10 px-2 py-2 text-xs font-semibold text-white hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       <PauseCircle size={14} /> Suspend (F8)
                     </button>
                     <button
-                      onClick={() => setShowSuspendList(true)}
-                      disabled={suspended.length === 0}
+                      onClick={openSuspendList}
+                      disabled={suspendBusy}
                       title="Lihat transaksi yang ditahan"
                       className="inline-flex items-center justify-center gap-1 rounded-full border border-white/30 bg-white/10 px-2 py-2 text-xs font-semibold text-white hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
@@ -1128,6 +1174,7 @@ export default function POSPage() {
                 autoFocus
                 type="text"
                 value={suspendLabel}
+                maxLength={255}
                 onChange={(e) => setSuspendLabel(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && confirmSuspend()}
                 placeholder="Misal: Pak Budi"
@@ -1144,9 +1191,10 @@ export default function POSPage() {
                 <button
                   type="button"
                   onClick={confirmSuspend}
+                  disabled={suspendBusy}
                   className="rounded-full bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600"
                 >
-                  Tahan
+                  {suspendBusy ? 'Menyimpan...' : 'Tahan'}
                 </button>
               </div>
             </div>
@@ -1175,7 +1223,9 @@ export default function POSPage() {
                 </button>
               </div>
               <div className="mt-5 grid gap-2 max-h-[420px] overflow-y-auto">
-                {suspended.length === 0 ? (
+                {suspendBusy ? (
+                  <p className="text-sm text-gray-500 py-6 text-center">Memuat transaksi...</p>
+                ) : suspended.length === 0 ? (
                   <p className="text-sm text-gray-500 py-6 text-center">Belum ada transaksi ditahan.</p>
                 ) : (
                   suspended.map((s) => {
@@ -1198,7 +1248,7 @@ export default function POSPage() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => removeSuspended(s.id)}
+                          onClick={() => handleRemoveSuspended(s.id)}
                           title="Hapus suspend"
                           className="rounded-full bg-white p-2 text-red-500 hover:bg-red-50"
                         >
